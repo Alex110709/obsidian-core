@@ -1,0 +1,11 @@
+services:
+  obsidian-node:
+    image: yuchanshin/obsidian-node:latest
+    container_name: obsidian-node
+    ports:
+      - "18333:8333"
+      - "18545:8545"
+      - "9050:9050"
+    volumes:
+      - /volume1/HDD_DATA/obsidian:/root
+    restart: unless-stopped

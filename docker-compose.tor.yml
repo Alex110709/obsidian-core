@@ -1,0 +1,69 @@
+# Tor-Enabled Cluster
+# All nodes communicate via Tor for maximum privacy
+
+services:
+  # Tor Seed Node
+  tor-seed:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-tor-seed
+    hostname: tor-seed
+    environment:
+      - TOR_ENABLED=true
+      - MINER_ADDRESS=ObsTorSeed
+    ports:
+      - "8545:8545"  # RPC only
+      - "9050:9050"  # Tor proxy
+    volumes:
+      - tor-seed-data:/root
+    restart: unless-stopped
+
+  # Tor Node 1
+  tor-node1:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-tor-node-1
+    hostname: tor-node1
+    environment:
+      - TOR_ENABLED=true
+      - MINER_ADDRESS=ObsTorNode1
+      # Note: .onion addresses will be discovered after first run
+      # - SEED_NODES=abc123xyz.onion:8333
+    ports:
+      - "8546:8545"
+      - "9051:9050"
+    volumes:
+      - tor-node1-data:/root
+    depends_on:
+      - tor-seed
+    restart: unless-stopped
+
+  # Tor Node 2
+  tor-node2:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-tor-node-2
+    hostname: tor-node2
+    environment:
+      - TOR_ENABLED=true
+      - MINER_ADDRESS=ObsTorNode2
+    ports:
+      - "8547:8545"
+      - "9052:9050"
+    volumes:
+      - tor-node2-data:/root
+    depends_on:
+      - tor-seed
+    restart: unless-stopped
+
+volumes:
+  tor-seed-data:
+  tor-node1-data:
+  tor-node2-data:
+
+# Usage:
+# 1. Start cluster:
+#    docker compose -f docker-compose.tor.yml up -d
+#
+# 2. Get .onion addresses:
+#    docker exec obs-tor-seed cat /var/lib/tor/hidden_service/hostname
+#    docker exec obs-tor-node-1 cat /var/lib/tor/hidden_service/hostname
+#
+# 3. Update SEED_NODES with .onion addresses and restart

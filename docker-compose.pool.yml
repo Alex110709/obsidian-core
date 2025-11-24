@@ -1,0 +1,41 @@
+# Obsidian Mining Pool Server Configuration
+# This runs a Stratum mining pool that miners can connect to
+
+services:
+  obsidian-pool:
+    image: yuchanshin/obsidian-node:latest
+    pull_policy: always
+    container_name: obsidian-pool
+    environment:
+      # Mining Configuration
+      SOLO_MINING: "false"         # Disable solo mining on pool server
+      POOL_SERVER: "true"          # Enable Stratum pool server
+      MINER_ADDRESS: "ObsidianPoolRewardAddress"
+      
+      # Pool Server Configuration
+      POOL_LISTEN: "0.0.0.0:3333"  # Stratum protocol port
+      
+      # RPC Configuration
+      RPC_ADDR: "0.0.0.0:8545"
+      
+      # Network Configuration
+      # TOR_ENABLED: "true"
+      # SEED_NODES: "node1.example.com:8333"
+      
+    ports:
+      - "3333:3333"  # Stratum mining pool port (miners connect here)
+      - "8545:8545"  # RPC port (for monitoring)
+      - "8333:8333"  # P2P port
+    volumes:
+      - obsidian-pool-data:/root
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "obsidiand"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  obsidian-pool-data:
+    driver: local

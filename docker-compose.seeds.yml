@@ -1,0 +1,29 @@
+# Obsidian Node with Seed Nodes Configuration
+# Use this to connect to existing network nodes
+
+services:
+  obsidian-node:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obsidian-with-seeds
+    environment:
+      # Your mining address
+      - MINER_ADDRESS=YourObsidianAddress
+      
+      # Connect to seed nodes (example addresses - replace with real ones)
+      - SEED_NODES=seed1.obsidian.network:8333,seed2.obsidian.network:8333,seed3.obsidian.network:8333
+      
+      # Optional: Enable Tor for privacy
+      # - TOR_ENABLED=true
+      
+    ports:
+      - "8333:8333"  # P2P
+      - "8545:8545"  # RPC
+    volumes:
+      - obsidian-data:/root
+    restart: unless-stopped
+
+volumes:
+  obsidian-data:
+
+# Usage:
+# docker compose -f docker-compose.seeds.yml up -d

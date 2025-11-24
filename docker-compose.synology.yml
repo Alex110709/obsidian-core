@@ -1,0 +1,25 @@
+services:
+  obsidian-node:
+    image: yuchanshin/obsidian-node:latest
+    container_name: obsidian-node
+    privileged: false
+    environment:
+      - TOR_ENABLED=true
+    ports:
+      - "18333:8333"  # P2P port
+      - "18545:8545"  # RPC port
+      - "9050:9050"   # Tor SOCKS proxy
+    volumes:
+      - /volume1/HDD_DATA/obsidian:/root
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep obsidiand || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

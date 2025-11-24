@@ -1,0 +1,41 @@
+services:
+  obsidian-node:
+    image: yuchanshin/obsidian-node:latest
+    pull_policy: always
+    container_name: obsidian-node
+    environment:
+      # Mining Configuration
+      SOLO_MINING: "true"          # Enable/disable solo mining (default: true)
+      POOL_SERVER: "false"         # Enable/disable pool server (default: false)
+      MINER_ADDRESS: "ObsidianMinerDefaultAddress"
+      
+      # Pool Server Configuration (only if POOL_SERVER=true)
+      # POOL_LISTEN: "0.0.0.0:3333"
+      
+      # Network Configuration
+      # TOR_ENABLED: "true"
+      # SEED_NODES: "node1.example.com:8333,node2.example.com:8333"
+      
+      # RPC Configuration
+      RPC_ADDR: "0.0.0.0:8545"
+      
+      # Data Directory
+      # DATA_DIR: "/root/data"
+    ports:
+      - "8333:8333"  # P2P port
+      - "8545:8545"  # RPC port
+      - "3333:3333"  # Stratum mining pool port
+      - "9050:9050"  # Tor SOCKS5 proxy
+    volumes:
+      - obsidian-data:/root
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "obsidiand"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  obsidian-data:
+    driver: local

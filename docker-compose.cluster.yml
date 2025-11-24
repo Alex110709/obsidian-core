@@ -1,0 +1,105 @@
+# Multi-Node Cluster Configuration
+# Run multiple nodes that connect to each other
+
+services:
+  # Seed Node (Bootstrap node)
+  seed-node:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-seed
+    hostname: seed-node
+    environment:
+      - MINER_ADDRESS=ObsSeedNode
+    ports:
+      - "8333:8333"
+      - "8545:8545"
+    networks:
+      obsidian-net:
+        ipv4_address: 172.25.0.10
+    volumes:
+      - seed-data:/root
+    restart: unless-stopped
+
+  # Node 1 (connects to seed)
+  node1:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-node-1
+    hostname: node1
+    environment:
+      - MINER_ADDRESS=ObsNode1
+      - SEED_NODES=172.25.0.10:8333
+    ports:
+      - "8334:8333"
+      - "8546:8545"
+    networks:
+      obsidian-net:
+        ipv4_address: 172.25.0.11
+    volumes:
+      - node1-data:/root
+    depends_on:
+      - seed-node
+    restart: unless-stopped
+
+  # Node 2 (connects to seed and node1)
+  node2:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-node-2
+    hostname: node2
+    environment:
+      - MINER_ADDRESS=ObsNode2
+      - SEED_NODES=172.25.0.10:8333,172.25.0.11:8333
+    ports:
+      - "8335:8333"
+      - "8547:8545"
+    networks:
+      obsidian-net:
+        ipv4_address: 172.25.0.12
+    volumes:
+      - node2-data:/root
+    depends_on:
+      - seed-node
+      - node1
+    restart: unless-stopped
+
+  # Node 3 (connects to all)
+  node3:
+    image: yuchanshin/obsidian-node:v1.1.0
+    container_name: obs-node-3
+    hostname: node3
+    environment:
+      - MINER_ADDRESS=ObsNode3
+      - SEED_NODES=172.25.0.10:8333,172.25.0.11:8333,172.25.0.12:8333
+    ports:
+      - "8336:8333"
+      - "8548:8545"
+    networks:
+      obsidian-net:
+        ipv4_address: 172.25.0.13
+    volumes:
+      - node3-data:/root
+    depends_on:
+      - seed-node
+      - node1
+      - node2
+    restart: unless-stopped
+
+networks:
+  obsidian-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  seed-data:
+  node1-data:
+  node2-data:
+  node3-data:
+
+# Usage:
+# docker compose -f docker-compose.cluster.yml up -d
+#
+# Access nodes:
+# Seed: http://localhost:8545
+# Node1: http://localhost:8546
+# Node2: http://localhost:8547
+# Node3: http://localhost:8548
