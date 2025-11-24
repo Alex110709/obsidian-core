@@ -170,7 +170,27 @@ POOL_SERVER=false
 
 ## Docker Deployment
 
-### Quick Start with Docker Compose (Recommended)
+### Environment Variables
+
+Obsidian Core supports the following environment variables for configuration:
+
+#### Mining Configuration
+- `SOLO_MINING`: Enable/disable solo CPU mining (default: `"true"`)
+- `POOL_SERVER`: Enable/disable Stratum mining pool server (default: `"false"`)
+- `MINER_ADDRESS`: Mining reward address (default: `"ObsidianDefaultMinerAddress123456789"`)
+- `POOL_LISTEN`: Stratum pool server listen address (default: `"0.0.0.0:3333"`)
+
+#### Network Configuration
+- `TOR_ENABLED`: Enable Tor for anonymous P2P networking (default: `"false"`)
+- `SEED_NODES`: Comma-separated list of seed nodes (optional)
+- `DATA_DIR`: Custom data directory path (default: `"/root"`)
+
+#### RPC Configuration
+- `RPC_ADDR`: RPC server listen address (default: `"0.0.0.0:8545"`)
+
+### Docker Compose Configurations
+
+#### Quick Start with Docker Compose (Recommended)
 
 The easiest way to run Obsidian node:
 
@@ -191,7 +211,7 @@ docker compose logs -f
 This will:
 - Pull the latest multi-architecture image (supports AMD64 and ARM64)
 - Create a persistent volume for blockchain data
-- Expose ports: 8333 (P2P), 8545 (RPC), 3333 (Stratum)
+- Expose ports: 8333 (P2P), 8545 (RPC), 3333 (Stratum), 9050 (Tor)
 - Enable solo mining by default
 - Auto-restart on failure
 
@@ -217,6 +237,104 @@ minerd -a sha256d -o stratum+tcp://localhost:3333 -u miner1 -p password
 **Monitor pool statistics:**
 ```bash
 curl -X POST http://localhost:8545 -d '{"jsonrpc":"2.0","method":"getpoolinfo","params":[],"id":1}'
+```
+
+#### Running with Tor (Anonymous Networking)
+
+For enhanced privacy with anonymous P2P connections:
+
+```bash
+docker compose -f docker-compose.tor.yml up -d
+```
+
+Or modify the default `docker-compose.yml`:
+```yaml
+environment:
+  - TOR_ENABLED=true
+```
+
+This enables:
+- Tor SOCKS5 proxy on port 9050
+- Anonymous P2P connections through Tor network
+- Support for .onion peer addresses
+
+#### Cluster Setup (Multiple Nodes)
+
+For running multiple interconnected nodes:
+
+```bash
+docker compose -f docker-compose.cluster.yml up -d
+```
+
+This creates a 3-node cluster with:
+- Automatic peer discovery
+- Load balancing across nodes
+- Shared mining rewards
+
+#### Synology NAS Deployment
+
+For Synology NAS users, multiple deployment options are available:
+
+```bash
+# Simple setup
+docker compose -f docker-compose.synology-simple.yml up -d
+
+# Full-featured setup
+docker compose -f docker-compose.synology-final.yml up -d
+```
+
+#### Seed Node Setup
+
+To run dedicated seed nodes for network bootstrapping:
+
+```bash
+docker compose -f docker-compose.seeds.yml up -d
+```
+
+### Custom Configuration
+
+Create a custom `docker-compose.override.yml`:
+
+```yaml
+services:
+  obsidian-node:
+    environment:
+      - SOLO_MINING=true
+      - MINER_ADDRESS=YourCustomAddress
+      - TOR_ENABLED=true
+      - SEED_NODES=node1.example.com:8333,node2.example.com:8333
+    volumes:
+      - ./custom-data:/root
+```
+
+Then run:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+```
+
+### Port Reference
+
+| Port | Protocol | Description |
+|------|----------|-------------|
+| 8333 | TCP | P2P network connections |
+| 8545 | TCP | JSON-RPC API |
+| 3333 | TCP | Stratum mining pool |
+| 9050 | TCP | Tor SOCKS5 proxy (when enabled) |
+
+### Volume Management
+
+Blockchain data is stored in named Docker volumes:
+- `obsidian-data`: Main node data
+- `obsidian-pool-data`: Pool server data
+
+To backup data:
+```bash
+docker run --rm -v obsidian-data:/data -v $(pwd):/backup alpine tar czf /backup/obsidian-backup.tar.gz -C /data .
+```
+
+To restore:
+```bash
+docker run --rm -v obsidian-data:/data -v $(pwd):/backup alpine tar xzf /backup/obsidian-backup.tar.gz -C /data
 ```
 
 #### Running with Tor (Anonymous Networking)
