@@ -54,13 +54,96 @@ See [EMISSION.md](EMISSION.md) for full emission schedule and economic model.
 
 ### Prerequisites
 - Go 1.20+
+- Git
+
+### Building from Source
+
+#### Linux
+```bash
+# Install Go (Ubuntu/Debian)
+sudo apt update
+sudo apt install golang-go
+
+# Clone and build
+git clone https://github.com/your-org/obsidian-core.git
+cd obsidian-core
+go mod tidy
+go build ./cmd/obsidiand
+
+# Run
+./obsidiand
+```
+
+#### macOS
+```bash
+# Install Go using Homebrew
+brew install go
+
+# Or download from https://golang.org/dl/
+
+# Clone and build
+git clone https://github.com/your-org/obsidian-core.git
+cd obsidian-core
+go mod tidy
+go build ./cmd/obsidiand
+
+# Run
+./obsidiand
+```
+
+#### Windows
+```powershell
+# Install Go from https://golang.org/dl/
+# Or using Chocolatey
+choco install golang
+
+# Clone and build
+git clone https://github.com/your-org/obsidian-core.git
+cd obsidian-core
+go mod tidy
+go build ./cmd/obsidiand
+
+# Run
+.\obsidiand.exe
+```
+
+#### Cross-Platform Build
+```bash
+# Build for Linux (from any platform)
+GOOS=linux GOARCH=amd64 go build ./cmd/obsidiand
+
+# Build for Windows (from any platform)
+GOOS=windows GOARCH=amd64 go build ./cmd/obsidiand
+
+# Build for macOS (from any platform)
+GOOS=darwin GOARCH=amd64 go build ./cmd/obsidiand
+```
 
 ### Running the Node
 ```bash
+# Run directly (development)
 go run cmd/obsidiand/main.go
+
+# Or run built binary
+./obsidiand
 ```
 
 This will start the node, initialize the blockchain with the Genesis block, and start a CPU miner simulation.
+
+### Environment Variables
+```bash
+# Mining configuration
+SOLO_MINING=true MINER_ADDRESS=YourAddress ./obsidiand
+
+# Pool server
+POOL_SERVER=true POOL_LISTEN=0.0.0.0:3333 ./obsidiand
+
+# Tor networking
+TOR_ENABLED=true ./obsidiand
+
+# Custom data directory
+DATA_DIR=./my-data ./obsidiand
+```
 
 ## Project Structure
 - `cmd/obsidiand`: Main daemon entry point.
