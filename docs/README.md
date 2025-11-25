@@ -5,6 +5,7 @@ This directory contains guides for implementing Obsidian Core in different progr
 ## Available Guides
 
 - [Build Guide](./build-guide.md) - Platform-specific build instructions
+- [Token Guide](./token-guide.md) - Custom token creation and management
 - [Go Implementation](./go-implementation.md) - Reference implementation
 - [Rust Implementation](./rust-implementation.md) - High-performance systems
 - [Python Implementation](./python-implementation.md) - Research and scripting

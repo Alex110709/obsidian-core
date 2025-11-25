@@ -14,6 +14,7 @@ Obsidian is a privacy-focused cryptocurrency based on the Zcash protocol with **
 - **Storage**: Persistent storage using BoltDB
 - **Privacy**: Shielded transactions (zk-SNARK-inspired), encrypted memos
 - **Security**: Block validation, PoW verification, and size limits
+- **Tokens**: Custom token creation and transfer without smart contracts
 
 ## Privacy Features (NEW in v1.1.0)
 
@@ -31,6 +32,55 @@ Obsidian implements Zcash-style shielded transactions for complete privacy:
 2. **Shielded (z→z)**: Fully private transactions
 3. **Shielding (t→z)**: Move funds from transparent to shielded pool
 4. **Deshielding (z→t)**: Move funds from shielded to transparent pool
+
+## Token Features (NEW)
+
+Obsidian supports custom token creation and transfer without requiring smart contracts. This enables ERC-20 style tokens directly on the blockchain layer.
+
+### Token Creation
+Create your own tokens with custom parameters:
+- **Name**: Token display name (max 32 characters)
+- **Symbol**: Token ticker symbol (max 8 characters)
+- **Decimals**: Decimal places (0-18)
+- **Supply**: Initial token supply
+
+### Token Operations
+- **Issue Token**: Create new tokens (free operation)
+- **Transfer Token**: Send tokens between addresses
+- **Query Balance**: Check token holdings
+- **List Tokens**: Browse all available tokens
+
+### Token Transactions
+1. **Token Issuance**: Create new token with initial supply
+2. **Token Transfer**: Move tokens with OB fee for network security
+3. **Token Query**: Check balances and token information
+
+### RPC Token Methods
+```bash
+# Issue a new token
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc":"2.0",
+  "method":"issuetoken",
+  "params":["My Token", "MTK", 18, 1000000],
+  "id":1
+}'
+
+# Transfer tokens
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc":"2.0",
+  "method":"transfertoken",
+  "params":["MTK", "sender_address", "recipient_address", 1000],
+  "id":1
+}'
+
+# Check token balance
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc":"2.0",
+  "method":"gettokenbalance",
+  "params":["user_address", "MTK"],
+  "id":1
+}'
+```
 
 ## Emission Schedule
 
