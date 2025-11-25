@@ -39,11 +39,22 @@ Obsidian implements Zcash-style shielded transactions for complete privacy:
 
 ## Token System
 
-Create and transfer custom tokens without smart contracts. Supports both transparent and shielded token transactions.
+Create and manage custom tokens without smart contracts. Full token lifecycle support with minting, burning, and ownership transfers.
+
+**Token Features:**
+- **Issuance**: Create tokens with custom parameters
+- **Minting**: Additional token creation (if enabled)
+- **Burning**: Permanent token destruction
+- **Transfers**: Send tokens between addresses
+- **Shielding**: Private token transactions
+- **Ownership**: Transfer token control
 
 **RPC Methods:**
 - `issuetoken` - Create new tokens
+- `minttoken` - Mint additional tokens
+- `burntoken` - Burn tokens permanently
 - `transfertoken` - Transfer tokens
+- `transfertokenownership` - Change token owner
 - `shieldtoken` - Private token transfers
 - `gettokenbalance` - Check balances
 
