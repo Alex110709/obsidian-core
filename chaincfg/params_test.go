@@ -8,9 +8,9 @@ import (
 func TestObsidianParams(t *testing.T) {
 	params := MainNetParams
 
-	// 1. Verify Block Size (6MB)
-	if params.BlockMaxSize != 6000000 {
-		t.Errorf("BlockMaxSize is %d, want 6000000", params.BlockMaxSize)
+	// 1. Verify Block Size (3.2MB)
+	if params.BlockMaxSize != 3200000 {
+		t.Errorf("BlockMaxSize is %d, want 3200000", params.BlockMaxSize)
 	}
 
 	// 2. Verify Max Supply (100M)
@@ -23,9 +23,9 @@ func TestObsidianParams(t *testing.T) {
 		t.Errorf("InitialSupply is %d, want 0 (fair launch)", params.InitialSupply)
 	}
 
-	// 4. Verify Block Time (5 minutes)
-	if params.TargetTimePerBlock != time.Minute*5 {
-		t.Errorf("TargetTimePerBlock is %v, want 5m0s", params.TargetTimePerBlock)
+	// 4. Verify Block Time (1 minute)
+	if params.TargetTimePerBlock != time.Minute*1 {
+		t.Errorf("TargetTimePerBlock is %v, want 1m0s", params.TargetTimePerBlock)
 	}
 
 	// 5. Verify Network Name

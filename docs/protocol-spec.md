@@ -10,7 +10,7 @@ Obsidian is a privacy-focused cryptocurrency with the following key features:
 - **Shielded Transactions**: Zero-knowledge proofs for privacy
 - **Encrypted Memos**: Optional encrypted messages attached to transactions
 - **Tor Integration**: Optional anonymous networking
-- **5-minute block time**: Optimized for faster confirmations
+- **1-minute block time**: Optimized for faster confirmations
 
 ## Network Parameters
 
@@ -22,9 +22,9 @@ Obsidian is a privacy-focused cryptocurrency with the following key features:
 | `BaseBlockReward` | 50 OBS | Initial block reward |
 | `HalvingInterval` | 420,000 | Blocks between reward halvings |
 | `MaxMoney` | 100,000,000 | Maximum supply |
-| `BlockMaxSize` | 6,000,000 | Maximum block size in bytes |
-| `TargetTimePerBlock` | 5 minutes | Target block time |
-| `DifficultyAdjustmentInterval` | 2,016 | Blocks between difficulty adjustments |
+| `BlockMaxSize` | 3,200,000 | Maximum block size in bytes |
+| `TargetTimePerBlock` | 1 minute | Target block time |
+| `DifficultyAdjustmentInterval` | 10,080 | Blocks between difficulty adjustments |
 
 ### Address Formats
 

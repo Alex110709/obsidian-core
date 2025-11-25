@@ -57,8 +57,8 @@ var MainNetParams = Params{
 	Name:                     "mainnet",
 	Net:                      0x0b51d1a5, // Magic bytes for Obsidian
 	DefaultPort:              "8333",
-	TargetTimespan:           time.Hour * 24 * 7, // 1 week (2016 blocks at 5min each)
-	TargetTimePerBlock:       time.Minute * 5,    // 5 minutes per block
+	TargetTimespan:           time.Hour * 24 * 7, // 1 week (10080 blocks at 1min each)
+	TargetTimePerBlock:       time.Minute * 1,    // 1 minute per block
 	RetargetAdjustmentFactor: 4,                  // Max 4x difficulty adjustment
 	ReduceMinDifficulty:      false,              // No min difficulty reduction
 	MinDiffReductionTime:     time.Minute * 20,   // Min time before difficulty reduction
@@ -67,7 +67,7 @@ var MainNetParams = Params{
 	PowLimitBits:             0x2000ffff,         // Much lower difficulty for new blockchain
 
 	// Obsidian Specifics
-	BlockMaxSize:  6000000,   // 6MB max block size
+	BlockMaxSize:  3200000,   // 3.2MB max block size
 	MaxMoney:      100000000, // 100 Million OBS total supply
 	InitialSupply: 0,         // ZERO pre-mine - fair launch!
 

@@ -3,8 +3,8 @@
 Obsidian is a privacy-focused cryptocurrency based on the Zcash protocol with **shielded transactions** and **encrypted memos**.
 
 ## Specifications
-- **Block Size**: 6MB
-- **Block Time**: 5 minutes (target)
+- **Block Size**: 3.2MB
+- **Block Time**: 1 minute (target)
 - **Difficulty Adjustment**: Every 2,016 blocks (~1 week), max 4x change (Bitcoin algorithm)
 - **Total Supply**: 100,000,000 OBS
 - **Initial Supply**: 1,000,000 OBS (pre-mine)
@@ -163,7 +163,7 @@ DATA_DIR=./my-data ./obsidiand
 1. **Block Validation**: Validates block headers, PoW, and transactions before accepting.
 2. **Persistent Storage**: Uses BoltDB for production-grade data persistence.
 3. **PoW Verification**: Real DarkMatter algorithm implementation with difficulty checking.
-4. **Size Limits**: Enforces 6MB block size and transaction limits.
+4. **Size Limits**: Enforces 3.2MB block size and transaction limits.
 5. **Duplicate Prevention**: Prevents duplicate blocks from being accepted.
 6. **Tor Integration**: Optional Tor support for anonymous P2P networking and .onion peers.
 
@@ -177,10 +177,10 @@ DATA_DIR=./my-data ./obsidiand
   4. Compare result against difficulty target
 
 ### Difficulty Adjustment (Bitcoin Algorithm)
-Obsidian uses **Bitcoin's exact difficulty adjustment algorithm**, adapted for 5-minute blocks:
+Obsidian uses **Bitcoin's exact difficulty adjustment algorithm**, adapted for 1-minute blocks:
 
-- **Target Block Time**: 5 minutes
-- **Retarget Interval**: 2,016 blocks (exactly 1 week at target rate)
+- **Target Block Time**: 1 minute
+- **Retarget Interval**: 10,080 blocks (exactly 1 week at target rate)
 - **Algorithm**: Same as Bitcoin
   1. Measures actual time to mine last 2,016 blocks
   2. Calculates: `new_target = old_target × (actual_time / target_time)`
@@ -197,7 +197,7 @@ If 2,016 blocks mined in 3.5 days instead of 7 days:
   → Next 2,016 blocks will be harder to mine
 ```
 
-This is identical to Bitcoin's mechanism, but optimized for 5-minute blocks instead of 10-minute blocks.
+This is identical to Bitcoin's mechanism, but optimized for 1-minute blocks instead of 10-minute blocks.
 
 ## Mining Modes
 
@@ -882,7 +882,7 @@ curl -X POST http://localhost:8545 \
 ### Block Rewards & Fees
 
 - **Initial Reward**: 50 OBS per block
-- **Halving Schedule**: Every 420,000 blocks (~4 years at 5-minute intervals)
+- **Halving Schedule**: Every 420,000 blocks (~1 year at 1-minute intervals)
 - **Minimum Fee**: 0.0001 OBS (10,000 satoshis)
 - **Fee Calculation**: 10 satoshis per byte + base fee
 

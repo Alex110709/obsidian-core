@@ -29,7 +29,7 @@ type SecurityParams struct {
 }
 
 var MainNetSecurityParams = SecurityParams{
-	MaxBlockSize:    6000000, // 6MB
+	MaxBlockSize:    3200000, // 3.2MB
 	MaxTxSize:       1000000, // 1MB
 	MaxOrphanBlocks: 100,
 	MaxOrphanTxs:    1000,
