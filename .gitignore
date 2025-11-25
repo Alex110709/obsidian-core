@@ -1,3 +1,4 @@
-/.dockerignore
-AGENTS.md
-.gitignore
+*.db
+*.log
+obsidiand
+.DS_Store

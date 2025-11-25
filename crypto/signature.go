@@ -2,16 +2,17 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/asn1"
 	"fmt"
 	"math/big"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
+	"golang.org/x/crypto/ripemd160"
 )
 
 // Signature represents an ECDSA signature
@@ -22,14 +23,12 @@ type Signature struct {
 // GenerateKeyPair generates a new ECDSA key pair using secp256k1 curve
 func GenerateKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	// Use secp256k1 curve (Bitcoin/Ethereum standard)
-	curve := elliptic.P256() // In production, use secp256k1
-
-	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
+	privateKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return privateKey, &privateKey.PublicKey, nil
+	return privateKey.ToECDSA(), &privateKey.ToECDSA().PublicKey, nil
 }
 
 // Sign creates a signature for the given hash using the private key
@@ -77,44 +76,12 @@ func BytesToPublicKey(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
 		return nil, fmt.Errorf("invalid public key length")
 	}
 
-	curve := elliptic.P256()
-	x := new(big.Int).SetBytes(pubKeyBytes[1:])
-
-	// Calculate Y from X
-	y := calculateY(curve, x, pubKeyBytes[0] == 0x03)
-
-	return &ecdsa.PublicKey{
-		Curve: curve,
-		X:     x,
-		Y:     y,
-	}, nil
-}
-
-// calculateY calculates Y coordinate from X on the curve
-func calculateY(curve elliptic.Curve, x *big.Int, odd bool) *big.Int {
-	// y^2 = x^3 + ax + b (mod p)
-	x3 := new(big.Int).Mul(x, x)
-	x3.Mul(x3, x)
-
-	params := curve.Params()
-
-	// Add ax
-	ax := new(big.Int).Mul(params.B, x) // Simplified
-	x3.Add(x3, ax)
-
-	// Add b
-	x3.Add(x3, params.B)
-	x3.Mod(x3, params.P)
-
-	// Calculate square root
-	y := new(big.Int).ModSqrt(x3, params.P)
-
-	// Choose correct root based on parity
-	if odd != (y.Bit(0) == 1) {
-		y.Sub(params.P, y)
+	pubKey, err := btcec.ParsePubKey(pubKeyBytes)
+	if err != nil {
+		return nil, err
 	}
 
-	return y
+	return pubKey.ToECDSA(), nil
 }
 
 // Hash256 performs double SHA256 hash
@@ -124,12 +91,12 @@ func Hash256(data []byte) []byte {
 	return second[:]
 }
 
-// Hash160 performs SHA256 followed by RIPEMD160 (simplified as double SHA256 for now)
+// Hash160 performs SHA256 followed by RIPEMD160
 func Hash160(data []byte) []byte {
 	hash := sha256.Sum256(data)
-	// In production, use RIPEMD160
-	hash2 := sha256.Sum256(hash[:])
-	return hash2[:20]
+	ripemd := ripemd160.New()
+	ripemd.Write(hash[:])
+	return ripemd.Sum(nil)
 }
 
 // PrivateKeyToWIF converts a private key to Wallet Import Format
@@ -204,12 +171,8 @@ func SeedToKeyPair(seed []byte) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 
 	privateKeyBytes := childKey.Key
 
-	// Convert to ECDSA
-	curve := elliptic.P256()
-	privKey := new(ecdsa.PrivateKey)
-	privKey.PublicKey.Curve = curve
-	privKey.D = new(big.Int).SetBytes(privateKeyBytes)
-	privKey.PublicKey.X, privKey.PublicKey.Y = curve.ScalarBaseMult(privateKeyBytes)
+	// Convert to ECDSA using secp256k1
+	privKey, pubKey := btcec.PrivKeyFromBytes(privateKeyBytes)
 
-	return privKey, &privKey.PublicKey, nil
+	return privKey.ToECDSA(), pubKey.ToECDSA(), nil
 }
