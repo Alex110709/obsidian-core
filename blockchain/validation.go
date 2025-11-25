@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"obsidian-core/crypto"
 	"obsidian-core/wire"
+	"strconv"
+	"strings"
 )
 
 // ValidateTransaction validates a transaction against the UTXO set
@@ -12,6 +14,14 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 	// Skip validation for coinbase transactions
 	if tx.IsCoinbase() {
 		return nil
+	}
+
+	// Handle different transaction types
+	switch tx.TxType {
+	case wire.TxTypeTokenIssue:
+		return b.validateTokenIssueTransaction(tx)
+	case wire.TxTypeTokenTransfer:
+		return b.validateTokenTransferTransaction(tx, utxoSet)
 	}
 
 	// 1. Check inputs exist and are unspent
@@ -272,4 +282,160 @@ func (b *BlockChain) CalculateTransactionFee(tx *wire.MsgTx, utxoSet *UTXOSet) (
 	}
 
 	return totalInput - totalOutput, nil
+}
+
+// validateTokenIssueTransaction validates a token issuance transaction
+func (b *BlockChain) validateTokenIssueTransaction(tx *wire.MsgTx) error {
+	// Token issuance should have no inputs (free operation)
+	if len(tx.TxIn) > 0 {
+		return fmt.Errorf("token issuance should not have inputs")
+	}
+
+	// Should have exactly one output
+	if len(tx.TxOut) != 1 {
+		return fmt.Errorf("token issuance should have exactly one output")
+	}
+
+	// Parse token data from memo
+	if len(tx.Memo) == 0 {
+		return fmt.Errorf("token issuance missing memo data")
+	}
+
+	// Basic memo validation (simplified)
+	// In production, implement proper deserialization
+	memoStr := string(tx.Memo)
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 4 {
+		return fmt.Errorf("invalid token issuance memo format")
+	}
+
+	name := parts[0]
+	symbol := parts[1]
+
+	// Validate token parameters
+	if len(name) == 0 || len(name) > 32 {
+		return fmt.Errorf("invalid token name length")
+	}
+	if len(symbol) == 0 || len(symbol) > 8 {
+		return fmt.Errorf("invalid token symbol length")
+	}
+
+	// Check if symbol already exists
+	if _, err := b.tokenStore.GetTokenBySymbol(symbol); err == nil {
+		return fmt.Errorf("token symbol %s already exists", symbol)
+	}
+
+	return nil
+}
+
+// validateTokenTransferTransaction validates a token transfer transaction
+func (b *BlockChain) validateTokenTransferTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// Should have at least one input (for fee payment)
+	if len(tx.TxIn) == 0 {
+		return fmt.Errorf("token transfer should have at least one input for fee")
+	}
+
+	// Should have at least one output (fee payment)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token transfer should have at least one output for fee")
+	}
+
+	// Parse token transfer data from memo
+	if len(tx.Memo) < 32 { // At least token ID (32 bytes)
+		return fmt.Errorf("token transfer missing memo data")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse transfer data (simplified)
+	// Format: tokenID + "|" + from + "|" + to + "|" + amount
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 4 {
+		return fmt.Errorf("invalid token transfer memo format")
+	}
+
+	from := parts[1]
+	amountStr := parts[3]
+
+	// Parse amount
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid transfer amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("transfer amount must be positive")
+	}
+
+	// Check if token exists
+	_, err = b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	// Check sender balance
+	senderBalance := b.tokenStore.GetBalance(from, tokenID)
+	if senderBalance < amount {
+		return fmt.Errorf("insufficient token balance: has %d, need %d", senderBalance, amount)
+	}
+
+	// Validate fee payment (standard OB transaction validation)
+	return b.validateStandardTransaction(tx, utxoSet)
+}
+
+// validateStandardTransaction validates a standard (non-token) transaction
+func (b *BlockChain) validateStandardTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// 1. Check inputs exist and are unspent
+	var totalInput int64
+	for _, txIn := range tx.TxIn {
+		utxo, err := utxoSet.GetUTXO(txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index)
+		if err != nil {
+			return fmt.Errorf("input not found: %v", err)
+		}
+		totalInput += utxo.Value
+	}
+
+	// 2. Calculate total output value
+	var totalOutput int64
+	for _, txOut := range tx.TxOut {
+		if txOut.Value < 0 {
+			return fmt.Errorf("negative output value")
+		}
+		totalOutput += txOut.Value
+	}
+
+	// 3. Check input >= output (difference is fee)
+	if totalInput < totalOutput {
+		return fmt.Errorf("input value less than output value")
+	}
+
+	// 4. Check fee is reasonable
+	fee := totalInput - totalOutput
+	if fee < 0 {
+		return fmt.Errorf("negative fee")
+	}
+
+	// Maximum fee check (prevent accidental high fees)
+	maxFee := totalOutput / 10 // Max 10% fee
+	if fee > maxFee && maxFee > 0 {
+		return fmt.Errorf("fee too high: %d (max: %d)", fee, maxFee)
+	}
+
+	// 5. Verify signatures for each input
+	for i, txIn := range tx.TxIn {
+		utxo, _ := utxoSet.GetUTXO(txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index)
+
+		// Create signature hash
+		sigHash := b.calculateSignatureHash(tx, i, utxo.PkScript)
+
+		// Verify signature
+		if err := b.verifyInputSignature(txIn, utxo.PkScript, sigHash); err != nil {
+			return fmt.Errorf("invalid signature for input %d: %v", i, err)
+		}
+	}
+
+	return nil
 }

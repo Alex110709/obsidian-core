@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/hex"
 	"fmt"
+	"obsidian-core/wire"
 )
 
 // getBlockCount returns the current block height.
@@ -372,4 +373,217 @@ func (s *Server) getpoolinfo(params []interface{}, wallet interface{}) (interfac
 	stats["enabled"] = true
 
 	return stats, nil
+}
+
+// issueToken creates a new token
+func (s *Server) issueToken(params []interface{}) (interface{}, error) {
+	if len(params) < 4 {
+		return nil, fmt.Errorf("insufficient parameters: need name, symbol, decimals, supply")
+	}
+
+	name, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid name parameter")
+	}
+
+	symbol, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid symbol parameter")
+	}
+
+	decimalsFloat, ok := params[2].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid decimals parameter")
+	}
+	decimals := uint8(decimalsFloat)
+
+	supplyFloat, ok := params[3].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid supply parameter")
+	}
+	supply := int64(supplyFloat)
+
+	// Get owner from params or use default
+	owner := "default_owner"
+	if len(params) > 4 {
+		if ownerParam, ok := params[4].(string); ok {
+			owner = ownerParam
+		}
+	}
+
+	// Create token issuance transaction
+	tokenIssue := &wire.TokenIssue{
+		Name:     name,
+		Symbol:   symbol,
+		Decimals: decimals,
+		Supply:   supply,
+		Owner:    owner,
+	}
+
+	tx := wire.NewTokenIssueTx(owner, tokenIssue)
+
+	// Add to mempool (simplified - in production, validate and broadcast)
+	fmt.Printf("Token issuance transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"name":   name,
+		"symbol": symbol,
+		"supply": supply,
+		"owner":  owner,
+	}, nil
+}
+
+// transferToken transfers tokens between addresses
+func (s *Server) transferToken(params []interface{}) (interface{}, error) {
+	if len(params) < 4 {
+		return nil, fmt.Errorf("insufficient parameters: need token_symbol, to_address, amount")
+	}
+
+	tokenSymbol, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	fromAddress, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from address parameter")
+	}
+
+	toAddress, ok := params[2].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid to address parameter")
+	}
+
+	amountFloat, ok := params[3].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat)
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	// Create token transfer transaction
+	tx := wire.NewTokenTransferTx(fromAddress, toAddress, token.ID, amount)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Token transfer transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"token":  tokenSymbol,
+		"from":   fromAddress,
+		"to":     toAddress,
+		"amount": amount,
+	}, nil
+}
+
+// getTokenBalance returns the token balance for an address
+func (s *Server) getTokenBalance(params []interface{}) (interface{}, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("insufficient parameters: need address, token_symbol")
+	}
+
+	address, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid address parameter")
+	}
+
+	tokenSymbol, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	// Get balance
+	balance := s.chain.GetTokenStore().GetBalance(address, token.ID)
+
+	return map[string]interface{}{
+		"address": address,
+		"token":   tokenSymbol,
+		"balance": balance,
+	}, nil
+}
+
+// getTokenInfo returns information about a token
+func (s *Server) getTokenInfo(params []interface{}) (interface{}, error) {
+	if len(params) < 1 {
+		return nil, fmt.Errorf("insufficient parameters: need token_symbol")
+	}
+
+	tokenSymbol, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	return map[string]interface{}{
+		"id":          token.ID.String(),
+		"name":        token.Name,
+		"symbol":      token.Symbol,
+		"decimals":    token.Decimals,
+		"totalSupply": token.TotalSupply,
+		"owner":       token.Owner,
+		"created":     token.Created,
+	}, nil
+}
+
+// listTokens returns all tokens
+func (s *Server) listTokens(params []interface{}) (interface{}, error) {
+	tokens := s.chain.GetTokenStore().ListTokens()
+
+	result := make([]map[string]interface{}, len(tokens))
+	for i, token := range tokens {
+		result[i] = map[string]interface{}{
+			"id":          token.ID.String(),
+			"name":        token.Name,
+			"symbol":      token.Symbol,
+			"decimals":    token.Decimals,
+			"totalSupply": token.TotalSupply,
+			"owner":       token.Owner,
+			"created":     token.Created,
+		}
+	}
+
+	return result, nil
+}
+
+// getAddressTokens returns all tokens held by an address
+func (s *Server) getAddressTokens(params []interface{}) (interface{}, error) {
+	if len(params) < 1 {
+		return nil, fmt.Errorf("insufficient parameters: need address")
+	}
+
+	address, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid address parameter")
+	}
+
+	tokens := s.chain.GetTokenStore().GetAddressTokens(address)
+
+	result := make(map[string]int64)
+	for tokenID, balance := range tokens {
+		if token, err := s.chain.GetTokenStore().GetToken(tokenID); err == nil {
+			result[token.Symbol] = balance
+		}
+	}
+
+	return map[string]interface{}{
+		"address": address,
+		"tokens":  result,
+	}, nil
 }

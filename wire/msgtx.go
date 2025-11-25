@@ -27,9 +27,11 @@ type TxOut struct {
 type TxType uint8
 
 const (
-	TxTypeTransparent TxType = 0 // Standard transparent transaction
-	TxTypeShielded    TxType = 1 // Shielded transaction (private)
-	TxTypeMixed       TxType = 2 // Mixed (t-addr to z-addr or vice versa)
+	TxTypeTransparent   TxType = 0 // Standard transparent transaction
+	TxTypeShielded      TxType = 1 // Shielded transaction (private)
+	TxTypeMixed         TxType = 2 // Mixed (t-addr to z-addr or vice versa)
+	TxTypeTokenIssue    TxType = 3 // Token issuance transaction
+	TxTypeTokenTransfer TxType = 4 // Token transfer transaction
 )
 
 // ShieldedSpend represents a shielded input (spending from shielded pool)
@@ -200,6 +202,74 @@ func NewCoinbaseTx(height int32, reward int64, minerAddress string) *MsgTx {
 
 	tx := NewMsgTx(TxVersion)
 	tx.AddTxIn(txIn)
+	tx.AddTxOut(txOut)
+
+	return tx
+}
+
+// Token represents a custom token on the Obsidian network
+type Token struct {
+	ID          Hash   // Unique token identifier (hash of issuance tx)
+	Name        string // Token name (max 32 chars)
+	Symbol      string // Token symbol (max 8 chars)
+	Decimals    uint8  // Decimal places (0-18)
+	TotalSupply int64  // Total supply
+	Owner       string // Token owner address
+	Created     int64  // Creation timestamp
+}
+
+// TokenIssue represents a token issuance transaction
+type TokenIssue struct {
+	Name     string // Token name
+	Symbol   string // Token symbol
+	Decimals uint8  // Decimal places
+	Supply   int64  // Initial supply
+	Owner    string // Owner address
+}
+
+// TokenTransfer represents a token transfer transaction
+type TokenTransfer struct {
+	TokenID Hash   // Token identifier
+	From    string // Sender address
+	To      string // Recipient address
+	Amount  int64  // Transfer amount
+}
+
+// NewTokenIssueTx creates a new token issuance transaction
+func NewTokenIssueTx(issuer string, tokenIssue *TokenIssue) *MsgTx {
+	tx := NewMsgTx(TxVersion)
+	tx.TxType = TxTypeTokenIssue
+
+	// Add token issuance data to memo field (simplified)
+	// In production, this should be properly serialized
+	tokenData := []byte(tokenIssue.Name + "|" + tokenIssue.Symbol + "|" +
+		string(rune(tokenIssue.Decimals)) + "|" + string(rune(tokenIssue.Supply)))
+	tx.Memo = tokenData
+
+	// Add a dummy output to make it a valid transaction
+	txOut := &TxOut{
+		Value:    0, // Token issuance doesn't require OB payment
+		PkScript: []byte(issuer),
+	}
+	tx.AddTxOut(txOut)
+
+	return tx
+}
+
+// NewTokenTransferTx creates a new token transfer transaction
+func NewTokenTransferTx(from, to string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(TxVersion)
+	tx.TxType = TxTypeTokenTransfer
+
+	// Add token transfer data to memo field (simplified)
+	transferData := append(tokenID[:], []byte("|"+from+"|"+to+"|"+string(rune(amount)))...)
+	tx.Memo = transferData
+
+	// Add a minimal OB output for transaction fee
+	txOut := &TxOut{
+		Value:    10000, // 0.0001 OB for fee
+		PkScript: []byte(from),
+	}
 	tx.AddTxOut(txOut)
 
 	return tx

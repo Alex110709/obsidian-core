@@ -199,6 +199,20 @@ func (s *Server) handleMethod(req *JSONRPCRequest) (interface{}, error) {
 	case "getpoolinfo":
 		return s.getpoolinfo(req.Params, s.wallet)
 
+	// Token methods
+	case "issuetoken":
+		return s.issueToken(req.Params)
+	case "transfertoken":
+		return s.transferToken(req.Params)
+	case "gettokenbalance":
+		return s.getTokenBalance(req.Params)
+	case "gettokeninfo":
+		return s.getTokenInfo(req.Params)
+	case "listtokens":
+		return s.listTokens(req.Params)
+	case "getaddresstokens":
+		return s.getAddressTokens(req.Params)
+
 	// Utility
 	case "ping":
 		return "pong", nil
