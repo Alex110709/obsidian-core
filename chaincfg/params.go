@@ -58,7 +58,7 @@ var MainNetParams = Params{
 	Net:                      0x0b51d1a5, // Magic bytes for Obsidian
 	DefaultPort:              "8333",
 	TargetTimespan:           time.Hour * 24 * 7, // 1 week (10080 blocks at 1min each)
-	TargetTimePerBlock:       time.Minute * 1,    // 1 minute per block
+	TargetTimePerBlock:       time.Minute * 2,    // 2 minutes per block
 	RetargetAdjustmentFactor: 4,                  // Max 4x difficulty adjustment
 	ReduceMinDifficulty:      false,              // No min difficulty reduction
 	MinDiffReductionTime:     time.Minute * 20,   // Min time before difficulty reduction

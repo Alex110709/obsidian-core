@@ -23,9 +23,9 @@ func TestObsidianParams(t *testing.T) {
 		t.Errorf("InitialSupply is %d, want 0 (fair launch)", params.InitialSupply)
 	}
 
-	// 4. Verify Block Time (1 minute)
-	if params.TargetTimePerBlock != time.Minute*1 {
-		t.Errorf("TargetTimePerBlock is %v, want 1m0s", params.TargetTimePerBlock)
+	// 4. Verify Block Time (2 minutes)
+	if params.TargetTimePerBlock != time.Minute*2 {
+		t.Errorf("TargetTimePerBlock is %v, want 2m0s", params.TargetTimePerBlock)
 	}
 
 	// 5. Verify Network Name

@@ -6,14 +6,14 @@ A privacy-focused cryptocurrency with shielded transactions, encrypted memos, an
 
 - **Privacy**: Shielded transactions with zk-SNARK-inspired proofs
 - **Tokens**: Custom token creation and transfer without smart contracts
-- **Fast**: 1-minute block time with 3.2MB blocks
+- **Fast**: 2-minute block time with 3.2MB blocks
 - **Secure**: Bitcoin-compatible difficulty adjustment
 - **Anonymous**: Optional Tor networking
 - **Multi-platform**: Linux, macOS, Windows support
 
 ## Specifications
 
-- **Block Time**: 1 minute
+- **Block Time**: 2 minutes
 - **Block Size**: 3.2MB
 - **Total Supply**: 100M OBS
 - **Consensus**: DarkMatter PoW (AES/SHA256 hybrid)
