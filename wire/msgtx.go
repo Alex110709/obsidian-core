@@ -35,6 +35,7 @@ const (
 	TxTypeTokenMint              TxType = 5 // Token minting transaction
 	TxTypeTokenTransferOwnership TxType = 6 // Token ownership transfer transaction
 	TxTypeTokenShielded          TxType = 7 // Token shielded transaction
+	TxTypeTokenBurn              TxType = 8 // Token burning transaction
 )
 
 // ShieldedSpend represents a shielded input (spending from shielded pool)
@@ -257,6 +258,13 @@ type TokenTransferOwnership struct {
 	NewOwner string // New owner address
 }
 
+// TokenBurn represents a token burning transaction
+type TokenBurn struct {
+	TokenID Hash   // Token identifier
+	Amount  int64  // Amount to burn
+	From    string // Address burning tokens
+}
+
 // TokenShielded represents a token shielded transaction
 type TokenShielded struct {
 	TokenID Hash   // Token identifier
@@ -312,6 +320,62 @@ func NewTokenShieldedTx(from, to string, tokenID Hash, amount int64) *MsgTx {
 	// Add token shielded data to memo field (simplified)
 	shieldedData := append(tokenID[:], []byte("|"+from+"|"+to+"|"+string(rune(amount)))...)
 	tx.Memo = shieldedData
+
+	// Add a minimal OB output for transaction fee
+	txOut := &TxOut{
+		Value:    10000, // 0.0001 OB for fee
+		PkScript: []byte(from),
+	}
+	tx.AddTxOut(txOut)
+
+	return tx
+}
+
+// NewTokenBurnTx creates a new token burning transaction
+func NewTokenBurnTx(from string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(TxVersion)
+	tx.TxType = TxTypeTokenBurn
+
+	// Add token burn data to memo field (simplified)
+	burnData := append(tokenID[:], []byte("|"+from+"|"+string(rune(amount)))...)
+	tx.Memo = burnData
+
+	// Add a minimal OB output for transaction fee
+	txOut := &TxOut{
+		Value:    10000, // 0.0001 OB for fee
+		PkScript: []byte(from),
+	}
+	tx.AddTxOut(txOut)
+
+	return tx
+}
+// NewTokenMintTx creates a new token minting transaction
+func NewTokenMintTx(from, to string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(TxVersion)
+	tx.TxType = TxTypeTokenMint
+
+	// Add token mint data to memo field (simplified)
+	mintData := append(tokenID[:], []byte("|"+string(rune(amount))+"|"+to+"|"+from)...)
+	tx.Memo = mintData
+
+	// Add a minimal OB output for transaction fee
+	txOut := &TxOut{
+		Value:    10000, // 0.0001 OB for fee
+		PkScript: []byte(from),
+	}
+	tx.AddTxOut(txOut)
+
+	return tx
+}
+
+// NewTokenTransferOwnershipTx creates a new token ownership transfer transaction
+func NewTokenTransferOwnershipTx(from, newOwner string, tokenID Hash) *MsgTx {
+	tx := NewMsgTx(TxVersion)
+	tx.TxType = TxTypeTokenTransferOwnership
+
+	// Add token ownership transfer data to memo field
+	transferData := append(tokenID[:], []byte(newOwner)...)
+	tx.Memo = transferData
 
 	// Add a minimal OB output for transaction fee
 	txOut := &TxOut{

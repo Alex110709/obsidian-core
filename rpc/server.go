@@ -204,6 +204,12 @@ func (s *Server) handleMethod(req *JSONRPCRequest) (interface{}, error) {
 		return s.issueToken(req.Params)
 	case "transfertoken":
 		return s.transferToken(req.Params)
+	case "minttoken":
+		return s.minttoken(req.Params)
+	case "burntoken":
+		return s.burntoken(req.Params)
+	case "transfertokenownership":
+		return s.transfertokenownership(req.Params)
 	case "shieldtoken":
 		return s.shieldtoken(req.Params)
 	case "gettokenbalance":

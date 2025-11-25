@@ -477,12 +477,121 @@ func (b *BlockChain) processTokenTransaction(tx *wire.MsgTx) error {
 		return b.processTokenIssuance(tx)
 	case wire.TxTypeTokenTransfer:
 		return b.processTokenTransfer(tx)
+	case wire.TxTypeTokenMint:
+		return b.processTokenMint(tx)
+	case wire.TxTypeTokenBurn:
+		return b.processTokenBurn(tx)
 	case wire.TxTypeTokenShielded:
 		return b.processTokenShielded(tx)
 	default:
 		// Not a token transaction, nothing to do
 		return nil
+}
+
+// processTokenMint processes a token minting transaction
+// func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
+	// Parse token mint data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token mint memo too short")
 	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse mint data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid token mint memo format")
+	}
+
+	amountStr := parts[0]
+	to := parts[1]
+
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid mint amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("mint amount must be positive")
+	}
+
+	// Check if token exists and is mintable
+	token, err := b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	if !token.Mintable {
+		return fmt.Errorf("token is not mintable")
+	}
+
+	// Check sender is token owner (from output address)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token mint transaction missing output")
+	}
+	sender := string(tx.TxOut[0].PkScript) // Simplified
+
+	if sender != token.Owner {
+		return fmt.Errorf("only token owner can mint tokens")
+	}
+
+	// Mint tokens to recipient
+	err = b.tokenStore.TransferToken(tokenID, sender, to, amount)
+	if err != nil {
+		return fmt.Errorf("failed to mint tokens: %v", err)
+	}
+
+	// Update total supply
+	token.TotalSupply += amount
+
+	fmt.Printf("✓ Token mint: %d tokens minted to %s for token %s\n", amount, to, token.Symbol)
+	return nil
+}
+
+// processTokenTransferOwnership processes a token ownership transfer transaction
+func (b *BlockChain) processTokenTransferOwnership(tx *wire.MsgTx) error {
+	// Parse ownership transfer data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token ownership transfer memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse transfer data
+	memoStr := string(tx.Memo[32:])
+	newOwner := memoStr
+
+	if newOwner == "" {
+		return fmt.Errorf("new owner address is required")
+	}
+
+	// Check if token exists
+	token, err := b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	// Check sender is current owner (from output address)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token ownership transfer transaction missing output")
+	}
+	sender := string(tx.TxOut[0].PkScript) // Simplified
+
+	if sender != token.Owner {
+		return fmt.Errorf("only current owner can transfer ownership")
+	}
+
+	// Transfer ownership
+	oldOwner := token.Owner
+	token.Owner = newOwner
+
+	fmt.Printf("✓ Token ownership transferred: %s → %s for token %s\n", oldOwner, newOwner, token.Symbol)
+	return nil
 }
 
 // processTokenIssuance processes a token issuance transaction
@@ -616,5 +725,122 @@ func (b *BlockChain) processTokenShielded(tx *wire.MsgTx) error {
 		fmt.Printf("✓ Token unshielding: %d tokens from shielded pool to %s\n", amount, to)
 	}
 
+	return nil
+}
+
+// processTokenBurn processes a token burning transaction
+func (b *BlockChain) processTokenBurn(tx *wire.MsgTx) error {
+	// Parse token burn data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token burn memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse burn data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid token burn memo format")
+	}
+
+	from := parts[0]
+	amountStr := parts[1]
+
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid burn amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("burn amount must be positive")
+	}
+
+	// Check if token exists
+	token, err := b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	// Check sender has sufficient balance
+	senderBalance := b.tokenStore.GetBalance(from, tokenID)
+	if senderBalance < amount {
+		return fmt.Errorf("insufficient token balance for burning: has %d, need %d", senderBalance, amount)
+	}
+
+	// Burn tokens (reduce balance and total supply)
+	err = b.tokenStore.TransferToken(tokenID, from, "burn_address", amount)
+	if err != nil {
+		return fmt.Errorf("failed to burn tokens: %v", err)
+	}
+
+	// Update total supply
+	token.TotalSupply -= amount
+
+	fmt.Printf("✓ Token burn: %d tokens burned from %s for token %s\n", amount, from, token.Symbol)
+	return nil
+}
+// processTokenMint processes a token minting transaction
+func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
+	// Parse token mint data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token mint memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse mint data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid token mint memo format")
+	}
+
+	amountStr := parts[0]
+	to := parts[1]
+
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid mint amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("mint amount must be positive")
+	}
+
+	// Check if token exists and is mintable
+	token, err := b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	if !token.Mintable {
+		return fmt.Errorf("token is not mintable")
+	}
+
+	// Check sender is token owner (from output address)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token mint transaction missing output")
+	}
+	sender := string(tx.TxOut[0].PkScript) // Simplified
+
+	if sender != token.Owner {
+		return fmt.Errorf("only token owner can mint tokens")
+	}
+
+	// Mint tokens to recipient
+	err = b.tokenStore.TransferToken(tokenID, sender, to, amount)
+	if err != nil {
+		return fmt.Errorf("failed to mint tokens: %v", err)
+	}
+
+	// Update total supply
+	token.TotalSupply += amount
+
+	fmt.Printf("✓ Token mint: %d tokens minted to %s for token %s\n", amount, to, token.Symbol)
 	return nil
 }

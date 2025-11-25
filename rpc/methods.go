@@ -643,3 +643,153 @@ func (s *Server) shieldtoken(params []interface{}) (interface{}, error) {
 		"amount": amount,
 	}, nil
 }
+
+// minttoken mints additional tokens for a mintable token
+func (s *Server) minttoken(params []interface{}) (interface{}, error) {
+	if len(params) < 4 {
+		return nil, fmt.Errorf("insufficient parameters: need token_symbol, amount, to_address, from_address")
+	}
+
+	tokenSymbol, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	amountFloat, ok := params[1].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat)
+
+	toAddress, ok := params[2].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid to address parameter")
+	}
+
+	fromAddress, ok := params[3].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from address parameter")
+	}
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	if !token.Mintable {
+		return nil, fmt.Errorf("token is not mintable")
+	}
+
+	if fromAddress != token.Owner {
+		return nil, fmt.Errorf("only token owner can mint tokens")
+	}
+
+	// Create token mint transaction
+	tx := wire.NewTokenMintTx(fromAddress, toAddress, token.ID, amount)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Token mint transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"token":  tokenSymbol,
+		"amount": amount,
+		"to":     toAddress,
+		"from":   fromAddress,
+	}, nil
+}
+
+// transfertokenownership transfers token ownership to a new address
+func (s *Server) transfertokenownership(params []interface{}) (interface{}, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("insufficient parameters: need token_symbol, new_owner_address, from_address")
+	}
+
+	tokenSymbol, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	newOwnerAddress, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid new owner address parameter")
+	}
+
+	fromAddress, ok := params[2].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from address parameter")
+	}
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	if fromAddress != token.Owner {
+		return nil, fmt.Errorf("only current owner can transfer ownership")
+	}
+
+	// Create token ownership transfer transaction
+	tx := wire.NewTokenTransferOwnershipTx(fromAddress, newOwnerAddress, token.ID)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Token ownership transfer transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":     tx.TxHash().String(),
+		"token":    tokenSymbol,
+		"oldOwner": fromAddress,
+		"newOwner": newOwnerAddress,
+	}, nil
+}
+
+// burntoken burns tokens permanently
+func (s *Server) burntoken(params []interface{}) (interface{}, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("insufficient parameters: need token_symbol, amount, from_address")
+	}
+
+	tokenSymbol, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	amountFloat, ok := params[1].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat)
+
+	fromAddress, ok := params[2].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from address parameter")
+	}
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	// Check sender has sufficient balance
+	balance := s.chain.GetTokenStore().GetBalance(fromAddress, token.ID)
+	if balance < amount {
+		return nil, fmt.Errorf("insufficient balance: has %d, need %d", balance, amount)
+	}
+
+	// Create token burn transaction
+	tx := wire.NewTokenBurnTx(fromAddress, token.ID, amount)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Token burn transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"token":  tokenSymbol,
+		"amount": amount,
+		"from":   fromAddress,
+		"action": "burn",
+	}, nil
+}

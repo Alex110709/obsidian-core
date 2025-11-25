@@ -19,9 +19,15 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 	// Handle different transaction types
 	switch tx.TxType {
 	case wire.TxTypeTokenIssue:
-		return b.validateTokenIssueTransaction(tx)
+		return b.validateTokenIssueTransaction(tx, utxoSet)
 	case wire.TxTypeTokenTransfer:
 		return b.validateTokenTransferTransaction(tx, utxoSet)
+	case wire.TxTypeTokenMint:
+		return b.validateTokenMintTransaction(tx, utxoSet)
+	case wire.TxTypeTokenBurn:
+		return b.validateTokenBurnTransaction(tx, utxoSet)
+	case wire.TxTypeTokenTransferOwnership:
+		return b.validateTokenTransferOwnershipTransaction(tx, utxoSet)
 	case wire.TxTypeTokenShielded:
 		return b.validateTokenShieldedTransaction(tx, utxoSet)
 	}
@@ -287,15 +293,15 @@ func (b *BlockChain) CalculateTransactionFee(tx *wire.MsgTx, utxoSet *UTXOSet) (
 }
 
 // validateTokenIssueTransaction validates a token issuance transaction
-func (b *BlockChain) validateTokenIssueTransaction(tx *wire.MsgTx) error {
-	// Token issuance should have no inputs (free operation)
-	if len(tx.TxIn) > 0 {
-		return fmt.Errorf("token issuance should not have inputs")
+func (b *BlockChain) validateTokenIssueTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// Token issuance requires fee payment
+	if len(tx.TxIn) == 0 {
+		return fmt.Errorf("token issuance requires fee payment input")
 	}
 
-	// Should have exactly one output
-	if len(tx.TxOut) != 1 {
-		return fmt.Errorf("token issuance should have exactly one output")
+	// Should have at least one output (for fee change)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token issuance should have at least one output")
 	}
 
 	// Parse token data from memo
@@ -327,7 +333,8 @@ func (b *BlockChain) validateTokenIssueTransaction(tx *wire.MsgTx) error {
 		return fmt.Errorf("token symbol %s already exists", symbol)
 	}
 
-	return nil
+	// Validate fee payment (standard OB transaction validation)
+	return b.validateStandardTransaction(tx, utxoSet)
 }
 
 // validateTokenTransferTransaction validates a token transfer transaction
@@ -499,4 +506,173 @@ func (b *BlockChain) validateStandardTransaction(tx *wire.MsgTx, utxoSet *UTXOSe
 	}
 
 	return nil
+}
+
+// validateTokenMintTransaction validates a token minting transaction
+func (b *BlockChain) validateTokenMintTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// Should have at least one input (for fee payment)
+	if len(tx.TxIn) == 0 {
+		return fmt.Errorf("token mint should have at least one input for fee")
+	}
+
+	// Should have at least one output (for fee change)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token mint should have at least one output for fee")
+	}
+
+	// Parse token mint data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token mint memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse mint data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid token mint memo format")
+	}
+
+	amountStr := parts[0]
+
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid mint amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("mint amount must be positive")
+	}
+
+	// Check if token exists and is mintable
+	token, err := b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	if !token.Mintable {
+		return fmt.Errorf("token is not mintable")
+	}
+
+	// Check sender is token owner (from output address)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token mint transaction missing output")
+	}
+	sender := string(tx.TxOut[0].PkScript) // Simplified
+
+	if sender != token.Owner {
+		return fmt.Errorf("only token owner can mint tokens")
+	}
+
+	// Validate fee payment
+	return b.validateStandardTransaction(tx, utxoSet)
+}
+
+// validateTokenTransferOwnershipTransaction validates a token ownership transfer transaction
+func (b *BlockChain) validateTokenTransferOwnershipTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// Should have at least one input (for fee payment)
+	if len(tx.TxIn) == 0 {
+		return fmt.Errorf("token ownership transfer should have at least one input for fee")
+	}
+
+	// Should have at least one output (for fee change)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token ownership transfer should have at least one output for fee")
+	}
+
+	// Parse ownership transfer data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token ownership transfer memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse transfer data
+	memoStr := string(tx.Memo[32:])
+	newOwner := memoStr
+
+	if newOwner == "" {
+		return fmt.Errorf("new owner address is required")
+	}
+
+	// Check if token exists
+	_, err := b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	// Check sender is current owner (from output address)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token ownership transfer transaction missing output")
+	}
+	sender := string(tx.TxOut[0].PkScript) // Simplified
+
+	token, _ := b.tokenStore.GetToken(tokenID)
+	if sender != token.Owner {
+		return fmt.Errorf("only current owner can transfer ownership")
+	}
+
+	// Validate fee payment
+	return b.validateStandardTransaction(tx, utxoSet)
+}
+
+// validateTokenBurnTransaction validates a token burning transaction
+func (b *BlockChain) validateTokenBurnTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// Should have at least one input (for fee payment)
+	if len(tx.TxIn) == 0 {
+		return fmt.Errorf("token burn should have at least one input for fee")
+	}
+
+	// Should have at least one output (for fee change)
+	if len(tx.TxOut) == 0 {
+		return fmt.Errorf("token burn should have at least one output for fee")
+	}
+
+	// Parse token burn data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token burn memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse burn data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid token burn memo format")
+	}
+
+	from := parts[0]
+	amountStr := parts[1]
+
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid burn amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("burn amount must be positive")
+	}
+
+	// Check if token exists
+	_, err = b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	// Check sender has sufficient balance
+	senderBalance := b.tokenStore.GetBalance(from, tokenID)
+	if senderBalance < amount {
+		return fmt.Errorf("insufficient token balance for burning: has %d, need %d", senderBalance, amount)
+	}
+
+	// Validate fee payment
+	return b.validateStandardTransaction(tx, utxoSet)
 }
