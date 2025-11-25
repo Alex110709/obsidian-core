@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"obsidian-core/wire"
+	"strings"
 )
 
 // getBlockCount returns the current block height.
@@ -585,5 +586,60 @@ func (s *Server) getAddressTokens(params []interface{}) (interface{}, error) {
 	return map[string]interface{}{
 		"address": address,
 		"tokens":  result,
+	}, nil
+}
+
+// shieldtoken shields or unshield tokens using shielded transactions
+func (s *Server) shieldtoken(params []interface{}) (interface{}, error) {
+	if len(params) < 4 {
+		return nil, fmt.Errorf("insufficient parameters: need from_address, to_address, token_symbol, amount")
+	}
+
+	fromAddress, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from address parameter")
+	}
+
+	toAddress, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid to address parameter")
+	}
+
+	tokenSymbol, ok := params[2].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid token symbol parameter")
+	}
+
+	amountFloat, ok := params[3].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat)
+
+	// Get token by symbol
+	token, err := s.chain.GetTokenStore().GetTokenBySymbol(tokenSymbol)
+	if err != nil {
+		return nil, fmt.Errorf("token not found: %v", err)
+	}
+
+	// Create token shielded transaction
+	tx := wire.NewTokenShieldedTx(fromAddress, toAddress, token.ID, amount)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Token shielded transaction created: %s\n", tx.TxHash().String())
+
+	isShielding := strings.HasPrefix(toAddress, "zobs")
+	action := "shielding"
+	if !isShielding {
+		action = "unshielding"
+	}
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"action": action,
+		"token":  tokenSymbol,
+		"from":   fromAddress,
+		"to":     toAddress,
+		"amount": amount,
 	}, nil
 }

@@ -80,6 +80,22 @@ curl -X POST http://localhost:8545 -d '{
   "params":["user_address", "MTK"],
   "id":1
 }'
+
+# Shield tokens (transparent to shielded)
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc":"2.0",
+  "method":"shieldtoken",
+  "params":["sender_address", "zobs_shielded_address", "MTK", 500],
+  "id":1
+}'
+
+# Unshield tokens (shielded to transparent)
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc":"2.0",
+  "method":"shieldtoken",
+  "params":["zobs_shielded_address", "recipient_address", "MTK", 300],
+  "id":1
+}'
 ```
 
 ## Emission Schedule

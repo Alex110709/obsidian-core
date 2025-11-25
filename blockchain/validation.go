@@ -22,6 +22,8 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 		return b.validateTokenIssueTransaction(tx)
 	case wire.TxTypeTokenTransfer:
 		return b.validateTokenTransferTransaction(tx, utxoSet)
+	case wire.TxTypeTokenShielded:
+		return b.validateTokenShieldedTransaction(tx, utxoSet)
 	}
 
 	// 1. Check inputs exist and are unspent
@@ -383,6 +385,65 @@ func (b *BlockChain) validateTokenTransferTransaction(tx *wire.MsgTx, utxoSet *U
 	}
 
 	// Validate fee payment (standard OB transaction validation)
+	return b.validateStandardTransaction(tx, utxoSet)
+}
+
+// validateTokenShieldedTransaction validates a token shielded transaction
+func (b *BlockChain) validateTokenShieldedTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error {
+	// Must be a shielded transaction
+	if !tx.IsShielded() {
+		return fmt.Errorf("token shielded transaction must be shielded")
+	}
+
+	// Parse token shielded data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token shielded memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse shielded data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 4 {
+		return fmt.Errorf("invalid token shielded memo format")
+	}
+
+	from := parts[1]
+	amountStr := parts[3]
+
+	// Parse amount
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid shielded amount: %v", err)
+	}
+
+	if amount <= 0 {
+		return fmt.Errorf("shielded amount must be positive")
+	}
+
+	// Check if token exists
+	_, err = b.tokenStore.GetToken(tokenID)
+	if err != nil {
+		return fmt.Errorf("token does not exist: %v", err)
+	}
+
+	// For shielding (t-addr to z-addr): check sender balance
+	// For unshielding (z-addr to t-addr): check shielded pool
+	// Simplified validation - in production, implement full shielded validation
+	senderBalance := b.tokenStore.GetBalance(from, tokenID)
+	if senderBalance < amount {
+		return fmt.Errorf("insufficient token balance for shielding: has %d, need %d", senderBalance, amount)
+	}
+
+	// Validate shielded transaction structure
+	if len(tx.ShieldedSpends) == 0 && len(tx.ShieldedOutputs) == 0 {
+		return fmt.Errorf("token shielded transaction must have shielded components")
+	}
+
+	// Validate fee payment
 	return b.validateStandardTransaction(tx, utxoSet)
 }
 

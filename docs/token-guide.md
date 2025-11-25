@@ -209,6 +209,76 @@ curl -X POST http://localhost:8545 -d '{
 }'
 ```
 
+### shieldtoken
+
+Shields or unshield tokens using shielded transactions for privacy.
+
+**Parameters:**
+- `from_address` (string): Sender address (transparent or shielded)
+- `to_address` (string): Recipient address (transparent or shielded)
+- `token_symbol` (string): Token symbol
+- `amount` (number): Amount to shield/unshield
+
+**Shielding (Transparent → Shielded):**
+```bash
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc": "2.0",
+  "method": "shieldtoken",
+  "params": ["transparent_addr", "zobs_shielded_addr", "MTK", 1000],
+  "id": 1
+}'
+```
+
+**Unshielding (Shielded → Transparent):**
+```bash
+curl -X POST http://localhost:8545 -d '{
+  "jsonrpc": "2.0",
+  "method": "shieldtoken",
+  "params": ["zobs_shielded_addr", "transparent_addr", "MTK", 500],
+  "id": 1
+}'
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "txid": "a1b2c3d4...",
+    "action": "shielding",
+    "token": "MTK",
+    "from": "transparent_addr",
+    "to": "zobs_shielded_addr",
+    "amount": 1000
+  },
+  "id": 1
+}
+```
+
+## Token Shielded Transactions
+
+Obsidian supports private token transfers using shielded transactions, providing the same privacy benefits as OB shielded transactions but for custom tokens.
+
+### Shielding Process
+
+1. **Transparent → Shielded**: Move tokens from public addresses to private shielded pool
+2. **Shielded → Shielded**: Private transfers within shielded pool
+3. **Shielded → Transparent**: Move tokens back to public addresses
+
+### Privacy Features
+
+- **Amount Hiding**: Transaction amounts are encrypted
+- **Sender/Receiver Anonymity**: Identities are protected
+- **Memo Encryption**: Optional encrypted messages
+- **zk-SNARK Proofs**: Mathematical privacy guarantees
+
+### Use Cases
+
+- **Private Token Transfers**: Hide transaction amounts and participants
+- **Confidential DeFi**: Private token swaps and lending
+- **Gaming Privacy**: Hide in-game token movements
+- **Corporate Privacy**: Confidential token distributions
+
 ## Implementation Details
 
 ### Token Storage

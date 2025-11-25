@@ -477,6 +477,8 @@ func (b *BlockChain) processTokenTransaction(tx *wire.MsgTx) error {
 		return b.processTokenIssuance(tx)
 	case wire.TxTypeTokenTransfer:
 		return b.processTokenTransfer(tx)
+	case wire.TxTypeTokenShielded:
+		return b.processTokenShielded(tx)
 	default:
 		// Not a token transaction, nothing to do
 		return nil
@@ -560,5 +562,59 @@ func (b *BlockChain) processTokenTransfer(tx *wire.MsgTx) error {
 	}
 
 	fmt.Printf("✓ Token transfer: %d tokens from %s to %s\n", amount, from, to)
+	return nil
+}
+
+// processTokenShielded processes a token shielded transaction
+func (b *BlockChain) processTokenShielded(tx *wire.MsgTx) error {
+	// Parse token shielded data from memo
+	if len(tx.Memo) < 32 {
+		return fmt.Errorf("token shielded memo too short")
+	}
+
+	// Extract token ID (first 32 bytes)
+	tokenID := wire.Hash{}
+	copy(tokenID[:], tx.Memo[:32])
+
+	// Parse shielded data
+	memoStr := string(tx.Memo[32:])
+	parts := strings.Split(memoStr, "|")
+	if len(parts) != 4 {
+		return fmt.Errorf("invalid token shielded memo format")
+	}
+
+	from := parts[1]
+	to := parts[2]
+	amountStr := parts[3]
+
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid shielded amount: %v", err)
+	}
+
+	// Process shielded transaction
+	// For shielding: deduct from transparent balance
+	// For unshielding: add to transparent balance
+	// Simplified implementation - in production, integrate with shielded pool
+
+	// Check if 'to' is a z-address (starts with 'zobs')
+	isShielding := strings.HasPrefix(to, "zobs")
+
+	if isShielding {
+		// Shielding: t-addr to z-addr
+		err = b.tokenStore.TransferToken(tokenID, from, to, amount)
+		if err != nil {
+			return fmt.Errorf("failed to shield tokens: %v", err)
+		}
+		fmt.Printf("✓ Token shielding: %d tokens from %s to shielded pool\n", amount, from)
+	} else {
+		// Unshielding: z-addr to t-addr
+		err = b.tokenStore.TransferToken(tokenID, from, to, amount)
+		if err != nil {
+			return fmt.Errorf("failed to unshield tokens: %v", err)
+		}
+		fmt.Printf("✓ Token unshielding: %d tokens from shielded pool to %s\n", amount, to)
+	}
+
 	return nil
 }

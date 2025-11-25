@@ -27,11 +27,14 @@ type TxOut struct {
 type TxType uint8
 
 const (
-	TxTypeTransparent   TxType = 0 // Standard transparent transaction
-	TxTypeShielded      TxType = 1 // Shielded transaction (private)
-	TxTypeMixed         TxType = 2 // Mixed (t-addr to z-addr or vice versa)
-	TxTypeTokenIssue    TxType = 3 // Token issuance transaction
-	TxTypeTokenTransfer TxType = 4 // Token transfer transaction
+	TxTypeTransparent            TxType = 0 // Standard transparent transaction
+	TxTypeShielded               TxType = 1 // Shielded transaction (private)
+	TxTypeMixed                  TxType = 2 // Mixed (t-addr to z-addr or vice versa)
+	TxTypeTokenIssue             TxType = 3 // Token issuance transaction
+	TxTypeTokenTransfer          TxType = 4 // Token transfer transaction
+	TxTypeTokenMint              TxType = 5 // Token minting transaction
+	TxTypeTokenTransferOwnership TxType = 6 // Token ownership transfer transaction
+	TxTypeTokenShielded          TxType = 7 // Token shielded transaction
 )
 
 // ShieldedSpend represents a shielded input (spending from shielded pool)
@@ -42,6 +45,8 @@ type ShieldedSpend struct {
 	Rk           []byte // Randomized public key
 	Proof        []byte // zk-SNARK proof
 	SpendAuthSig []byte // Spend authorization signature
+	TokenID      Hash   // Token identifier (zero hash for OB)
+	TokenAmount  int64  // Token amount (0 for OB)
 }
 
 // ShieldedOutput represents a shielded output (adding to shielded pool)
@@ -53,6 +58,8 @@ type ShieldedOutput struct {
 	OutCiphertext []byte // Encrypted outgoing ciphertext (80 bytes)
 	Proof         []byte // zk-SNARK proof
 	Memo          []byte // Encrypted memo (512 bytes)
+	TokenID       Hash   // Token identifier (zero hash for OB)
+	TokenAmount   int64  // Token amount (0 for OB)
 }
 
 // MsgTx implements the Message interface and represents a bitcoin tx message.
@@ -215,6 +222,7 @@ type Token struct {
 	Decimals    uint8  // Decimal places (0-18)
 	TotalSupply int64  // Total supply
 	Owner       string // Token owner address
+	Mintable    bool   // Whether additional tokens can be minted
 	Created     int64  // Creation timestamp
 }
 
@@ -224,6 +232,7 @@ type TokenIssue struct {
 	Symbol   string // Token symbol
 	Decimals uint8  // Decimal places
 	Supply   int64  // Initial supply
+	Mintable bool   // Whether additional tokens can be minted
 	Owner    string // Owner address
 }
 
@@ -233,6 +242,26 @@ type TokenTransfer struct {
 	From    string // Sender address
 	To      string // Recipient address
 	Amount  int64  // Transfer amount
+}
+
+// TokenMint represents a token minting transaction
+type TokenMint struct {
+	TokenID Hash   // Token identifier
+	Amount  int64  // Amount to mint
+	To      string // Recipient address
+}
+
+// TokenTransferOwnership represents a token ownership transfer transaction
+type TokenTransferOwnership struct {
+	TokenID  Hash   // Token identifier
+	NewOwner string // New owner address
+}
+
+// TokenShielded represents a token shielded transaction
+type TokenShielded struct {
+	TokenID Hash   // Token identifier
+	Amount  int64  // Amount to shield/unshield
+	To      string // Recipient z-address (shield) or t-address (unshield)
 }
 
 // NewTokenIssueTx creates a new token issuance transaction
@@ -264,6 +293,25 @@ func NewTokenTransferTx(from, to string, tokenID Hash, amount int64) *MsgTx {
 	// Add token transfer data to memo field (simplified)
 	transferData := append(tokenID[:], []byte("|"+from+"|"+to+"|"+string(rune(amount)))...)
 	tx.Memo = transferData
+
+	// Add a minimal OB output for transaction fee
+	txOut := &TxOut{
+		Value:    10000, // 0.0001 OB for fee
+		PkScript: []byte(from),
+	}
+	tx.AddTxOut(txOut)
+
+	return tx
+}
+
+// NewTokenShieldedTx creates a new token shielded transaction
+func NewTokenShieldedTx(from, to string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewShieldedTx(TxVersion)
+	tx.TxType = TxTypeTokenShielded
+
+	// Add token shielded data to memo field (simplified)
+	shieldedData := append(tokenID[:], []byte("|"+from+"|"+to+"|"+string(rune(amount)))...)
+	tx.Memo = shieldedData
 
 	// Add a minimal OB output for transaction fee
 	txOut := &TxOut{
