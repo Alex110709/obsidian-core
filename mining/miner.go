@@ -12,6 +12,7 @@ import (
 // BlockBroadcaster is an interface for broadcasting newly mined blocks
 type BlockBroadcaster interface {
 	BroadcastBlock(block *wire.MsgBlock)
+	GetPeerCount() int
 }
 
 type CPUMiner struct {
