@@ -110,13 +110,28 @@ func (m *CPUMiner) Start() {
 			continue
 		}
 
-		fmt.Printf("✓ Block mined! Height: %d, Hash: %x, Subsidy: %d OBS, Fees: %d, Total: %d OBS\n",
-			currentHeight, newBlock.BlockHash(), blockSubsidy, totalFees, totalReward)
+		// Print success message
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("⛏️  NEW BLOCK MINED!")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("  Height:       %d\n", currentHeight)
+		fmt.Printf("  Hash:         %x\n", newBlock.BlockHash())
+		fmt.Printf("  Nonce:        %d\n", nonce)
+		fmt.Printf("  Difficulty:   0x%08x\n", best.Header.Bits)
+		fmt.Printf("  Transactions: %d\n", len(newBlock.Transactions))
+		fmt.Printf("  Subsidy:      %d OBS\n", blockSubsidy)
+		fmt.Printf("  Fees:         %d OBS\n", totalFees)
+		fmt.Printf("  Total Reward: %d OBS\n", totalReward)
+		fmt.Printf("  Miner:        %s\n", m.minerAddr)
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 		// Broadcast block to peers if sync manager is available
 		if m.syncManager != nil {
 			m.syncManager.BroadcastBlock(newBlock)
-			fmt.Println("📡 Block broadcast to peers")
+			peerCount := m.syncManager.GetPeerCount()
+			fmt.Printf("📡 Block broadcast to %d peer(s)\n", peerCount)
+		} else {
+			fmt.Println("📡 No peers connected (mining solo)")
 		}
 
 		// Wait before next block (target: 5 minutes, but faster for demo)

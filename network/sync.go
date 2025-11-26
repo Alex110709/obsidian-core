@@ -323,13 +323,20 @@ func (sm *SyncManager) ConnectToPeer(addr string) {
 		sm.mu.Lock()
 		sm.peers[addr] = peer
 		sm.outboundCount++
+		currentOutbound := sm.outboundCount
 		sm.mu.Unlock()
 
-		fmt.Printf("Connected to peer: %s (outbound %d/%d)\n", addr, sm.outboundCount, MaxOutboundPeers)
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("🔗 NEW PEER CONNECTED")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("  Address:   %s\n", addr)
+		fmt.Printf("  Direction: Outbound\n")
+		fmt.Printf("  Peers:     %d/%d outbound\n", currentOutbound, MaxOutboundPeers)
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 		// Perform handshake
 		if err := sm.performHandshake(peer); err != nil {
-			fmt.Printf("Handshake failed with %s: %v\n", addr, err)
+			fmt.Printf("❌ Handshake failed with %s: %v\n", addr, err)
 			peer.Disconnect()
 			return
 		}
@@ -446,9 +453,16 @@ func (sm *SyncManager) connectAndSync(addr string) {
 	sm.mu.Lock()
 	sm.peers[addr] = peer
 	sm.outboundCount++
+	currentOutbound := sm.outboundCount
 	sm.mu.Unlock()
 
-	fmt.Printf("Connected to peer: %s (outbound %d/%d)\n", addr, sm.outboundCount, MaxOutboundPeers)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔗 NEW PEER CONNECTED")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("  Address:   %s\n", addr)
+	fmt.Printf("  Direction: Outbound\n")
+	fmt.Printf("  Peers:     %d/%d outbound\n", currentOutbound, MaxOutboundPeers)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Perform handshake
 	if err := sm.performHandshake(peer); err != nil {
@@ -515,7 +529,14 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 		return fmt.Errorf("expected verack message, got %s", msg.Type)
 	}
 
-	fmt.Printf("Handshake complete with %s (height: %d)\n", peer.addr, peerVersion.Height)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🤝 HANDSHAKE COMPLETE")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("  Peer:       %s\n", peer.addr)
+	fmt.Printf("  Version:    %d\n", peerVersion.Version)
+	fmt.Printf("  Height:     %d\n", peerVersion.Height)
+	fmt.Printf("  User Agent: %s\n", peerVersion.UserAgent)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	return nil
 }
 
@@ -569,7 +590,17 @@ func (sm *SyncManager) handlePeerMessages(peer *Peer) {
 	}
 	sm.mu.Unlock()
 
-	fmt.Printf("Disconnected from peer: %s (score: %d)\n", peer.addr, peer.GetScore())
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔌 PEER DISCONNECTED")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("  Address:    %s\n", peer.addr)
+	fmt.Printf("  Final Score: %d\n", peer.GetScore())
+	if peer.inbound {
+		fmt.Printf("  Direction:   Inbound\n")
+	} else {
+		fmt.Printf("  Direction:   Outbound\n")
+	}
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
 // handleMessage handles a specific message from a peer.
@@ -707,7 +738,6 @@ func (sm *SyncManager) handleBlock(peer *Peer, msg *P2PMessage) error {
 	}
 
 	blockHash := block.BlockHash()
-	fmt.Printf("Received block %s from %s\n", blockHash.String(), peer.addr)
 
 	// Mark as known
 	sm.mu.Lock()
@@ -717,15 +747,30 @@ func (sm *SyncManager) handleBlock(peer *Peer, msg *P2PMessage) error {
 	// Process block
 	if err := sm.blockchain.ProcessBlock(block, sm.pow); err != nil {
 		peer.AdjustScore(ScoreInvalidBlock)
+		fmt.Printf("❌ Invalid block from %s: %v\n", peer.addr, err)
 		return fmt.Errorf("failed to process block: %v", err)
 	}
 
 	// Reward peer for valid block
 	peer.AdjustScore(ScoreValidBlock)
-	fmt.Printf("✅ Valid block from %s (score: %d)\n", peer.addr, peer.GetScore())
+	currentHeight := sm.blockchain.Height()
+
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📦 NEW BLOCK RECEIVED")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("  Height:       %d\n", currentHeight)
+	fmt.Printf("  Hash:         %s\n", blockHash.String())
+	fmt.Printf("  From Peer:    %s\n", peer.addr)
+	fmt.Printf("  Peer Score:   %d\n", peer.GetScore())
+	fmt.Printf("  Transactions: %d\n", len(block.Transactions))
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Announce to other peers
 	sm.announceBlock(block, peer.addr)
+	peerCount := len(sm.peers) - 1 // Exclude source peer
+	if peerCount > 0 {
+		fmt.Printf("📡 Block relayed to %d other peer(s)\n", peerCount)
+	}
 
 	return nil
 }
