@@ -65,6 +65,46 @@ See [Token Guide](./docs/token-guide.md) for detailed documentation.
 ### Prerequisites
 - Go 1.20+
 - Git
+- Docker (optional)
+
+### Quick Start with Docker
+
+The fastest way to run Obsidian Core:
+
+```bash
+# Pull and run the latest version
+docker pull your-dockerhub-username/obsidian-core:latest
+docker run -d -p 8334:8334 -p 8333:8333 your-dockerhub-username/obsidian-core:latest
+
+# With custom configuration
+docker run -d \
+  -p 8334:8334 -p 8333:8333 \
+  -e SOLO_MINING=true \
+  -e MINER_ADDRESS=YourAddress \
+  -v obsidian-data:/root/.obsidian \
+  your-dockerhub-username/obsidian-core:latest
+```
+
+### Docker Compose Deployments
+
+Multiple deployment configurations available:
+
+```bash
+# Standard single node
+docker-compose up -d
+
+# Mining pool
+docker-compose -f docker-compose.pool.yml up -d
+
+# Seed nodes
+docker-compose -f docker-compose.seeds.yml up -d
+
+# Cluster deployment
+docker-compose -f docker-compose.cluster.yml up -d
+
+# Tor-enabled node
+docker-compose -f docker-compose.tor.yml up -d
+```
 
 ### Building from Source
 
@@ -164,3 +204,33 @@ DATA_DIR=./my-data ./obsidiand
 - [Rust Implementation](./docs/rust-implementation.md) - High-performance alternative
 - [Python Implementation](./docs/python-implementation.md) - Research and experimentation
 - [JavaScript Implementation](./docs/javascript-implementation.md) - Web integration guide
+
+## Docker Hub
+
+Official Docker images are available at:
+```
+docker pull your-dockerhub-username/obsidian-core:latest
+docker pull your-dockerhub-username/obsidian-core:v1.1.0
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source and available under the MIT License.
+
+## Community
+
+- **GitHub**: https://github.com/your-org/obsidian-core
+- **Issues**: https://github.com/your-org/obsidian-core/issues
+
+## Recent Updates
+
+### v1.1.0
+- Enhanced validation and token mint processing
+- Complete token management features (minting, burning, ownership transfer)
+- Improved security and vulnerability fixes
+- P2P networking tests and improvements
+- Updated dependencies
