@@ -486,8 +486,10 @@ func (b *BlockChain) processTokenTransaction(tx *wire.MsgTx) error {
 	default:
 		// Not a token transaction, nothing to do
 		return nil
+	}
 }
 
+// processTokenMint processes a token minting transaction
 func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
 	// Parse token mint data from memo
 	if len(tx.Memo) < 32 {
