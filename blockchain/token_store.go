@@ -31,9 +31,34 @@ func (ts *TokenStore) IssueToken(tokenID wire.Hash, name, symbol string, decimal
 	ts.mutex.Lock()
 	defer ts.mutex.Unlock()
 
+	// Input validation
+	if supply < 0 {
+		return fmt.Errorf("supply cannot be negative")
+	}
+	if supply == 0 {
+		return fmt.Errorf("supply must be greater than zero")
+	}
+	if len(name) == 0 || len(name) > 32 {
+		return fmt.Errorf("token name length must be between 1 and 32 characters")
+	}
+	if len(symbol) == 0 || len(symbol) > 8 {
+		return fmt.Errorf("token symbol length must be between 1 and 8 characters")
+	}
+	if decimals > 18 {
+		return fmt.Errorf("decimals cannot exceed 18")
+	}
+	if len(owner) == 0 {
+		return fmt.Errorf("owner address cannot be empty")
+	}
+
 	// Check if symbol already exists
 	if _, exists := ts.tokenIndex[symbol]; exists {
 		return fmt.Errorf("token symbol %s already exists", symbol)
+	}
+
+	// Check if tokenID already exists
+	if _, exists := ts.tokens[tokenID]; exists {
+		return fmt.Errorf("token ID already exists")
 	}
 
 	token := &wire.Token{
@@ -63,9 +88,34 @@ func (ts *TokenStore) TransferToken(tokenID wire.Hash, from, to string, amount i
 	ts.mutex.Lock()
 	defer ts.mutex.Unlock()
 
+	// Input validation
+	if amount <= 0 {
+		return fmt.Errorf("transfer amount must be positive")
+	}
+	if from == "" {
+		return fmt.Errorf("from address cannot be empty")
+	}
+	if to == "" {
+		return fmt.Errorf("to address cannot be empty")
+	}
+	if from == to {
+		return fmt.Errorf("cannot transfer to same address")
+	}
+
+	// Check if token exists
+	if _, exists := ts.tokens[tokenID]; !exists {
+		return fmt.Errorf("token does not exist")
+	}
+
 	fromBalance := ts.getBalance(from, tokenID)
 	if fromBalance < amount {
-		return fmt.Errorf("insufficient balance")
+		return fmt.Errorf("insufficient balance: has %d, need %d", fromBalance, amount)
+	}
+
+	// Check for overflow on recipient balance
+	toBalance := ts.getBalance(to, tokenID)
+	if toBalance > 0 && amount > (int64(^uint64(0)>>1)-toBalance) {
+		return fmt.Errorf("recipient balance would overflow")
 	}
 
 	ts.balances[from][tokenID] -= amount

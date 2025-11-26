@@ -306,8 +306,44 @@ func VerifyProof(proof []byte, commitment []byte, nullifier []byte) bool {
 		return false
 	}
 
-	// For demo purposes, always return true if sizes are correct
-	// Real implementation would verify the cryptographic proof
+	// Additional validation: check for zero proofs (invalid)
+	allZero := true
+	for _, b := range proof {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return false
+	}
+
+	// Check for zero commitment (invalid)
+	allZero = true
+	for _, b := range commitment {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return false
+	}
+
+	// Check for zero nullifier (invalid)
+	allZero = true
+	for _, b := range nullifier {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return false
+	}
+
+	// For demo purposes, return true if basic checks pass
+	// Real implementation would verify the cryptographic proof using bellman/groth16
 	return true
 }
 

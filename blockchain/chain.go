@@ -488,8 +488,7 @@ func (b *BlockChain) processTokenTransaction(tx *wire.MsgTx) error {
 		return nil
 }
 
-// processTokenMint processes a token minting transaction
-// func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
+func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
 	// Parse token mint data from memo
 	if len(tx.Memo) < 32 {
 		return fmt.Errorf("token mint memo too short")
@@ -780,67 +779,5 @@ func (b *BlockChain) processTokenBurn(tx *wire.MsgTx) error {
 	token.TotalSupply -= amount
 
 	fmt.Printf("✓ Token burn: %d tokens burned from %s for token %s\n", amount, from, token.Symbol)
-	return nil
-}
-// processTokenMint processes a token minting transaction
-func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
-	// Parse token mint data from memo
-	if len(tx.Memo) < 32 {
-		return fmt.Errorf("token mint memo too short")
-	}
-
-	// Extract token ID (first 32 bytes)
-	tokenID := wire.Hash{}
-	copy(tokenID[:], tx.Memo[:32])
-
-	// Parse mint data
-	memoStr := string(tx.Memo[32:])
-	parts := strings.Split(memoStr, "|")
-	if len(parts) != 3 {
-		return fmt.Errorf("invalid token mint memo format")
-	}
-
-	amountStr := parts[0]
-	to := parts[1]
-
-	amount, err := strconv.ParseInt(amountStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid mint amount: %v", err)
-	}
-
-	if amount <= 0 {
-		return fmt.Errorf("mint amount must be positive")
-	}
-
-	// Check if token exists and is mintable
-	token, err := b.tokenStore.GetToken(tokenID)
-	if err != nil {
-		return fmt.Errorf("token does not exist: %v", err)
-	}
-
-	if !token.Mintable {
-		return fmt.Errorf("token is not mintable")
-	}
-
-	// Check sender is token owner (from output address)
-	if len(tx.TxOut) == 0 {
-		return fmt.Errorf("token mint transaction missing output")
-	}
-	sender := string(tx.TxOut[0].PkScript) // Simplified
-
-	if sender != token.Owner {
-		return fmt.Errorf("only token owner can mint tokens")
-	}
-
-	// Mint tokens to recipient
-	err = b.tokenStore.TransferToken(tokenID, sender, to, amount)
-	if err != nil {
-		return fmt.Errorf("failed to mint tokens: %v", err)
-	}
-
-	// Update total supply
-	token.TotalSupply += amount
-
-	fmt.Printf("✓ Token mint: %d tokens minted to %s for token %s\n", amount, to, token.Symbol)
 	return nil
 }

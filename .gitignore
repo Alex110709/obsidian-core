@@ -2,3 +2,5 @@
 *.log
 obsidiand
 .DS_Store
+.dockerignore
+.gitignore

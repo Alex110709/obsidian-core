@@ -39,11 +39,38 @@ func (sp *ShieldedPool) AddCommitment(cm *wire.NoteCommitment, value int64) erro
 	sp.mu.Lock()
 	defer sp.mu.Unlock()
 
+	// Validate commitment
+	if len(cm.Cm) != wire.CommitmentSize {
+		return fmt.Errorf("invalid commitment size")
+	}
+
+	// Check for zero commitment (invalid)
+	allZero := true
+	for _, b := range cm.Cm {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return fmt.Errorf("zero commitment not allowed")
+	}
+
 	key := string(cm.Cm)
 
 	// Check if commitment already exists
 	if _, exists := sp.commitments[key]; exists {
 		return fmt.Errorf("commitment already exists")
+	}
+
+	// Validate value
+	if value < 0 {
+		return fmt.Errorf("negative commitment value")
+	}
+
+	// Check for overflow
+	if value > 0 && sp.totalShieldedValue > (int64(^uint64(0)>>1)-value) {
+		return fmt.Errorf("total shielded value would overflow")
 	}
 
 	// Add to commitment map
@@ -62,6 +89,23 @@ func (sp *ShieldedPool) AddCommitment(cm *wire.NoteCommitment, value int64) erro
 func (sp *ShieldedPool) AddNullifier(nf *wire.Nullifier) error {
 	sp.mu.Lock()
 	defer sp.mu.Unlock()
+
+	// Validate nullifier
+	if len(nf.Nf) != wire.NullifierSize {
+		return fmt.Errorf("invalid nullifier size")
+	}
+
+	// Check for zero nullifier (invalid)
+	allZero := true
+	for _, b := range nf.Nf {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return fmt.Errorf("zero nullifier not allowed")
+	}
 
 	key := string(nf.Nf)
 

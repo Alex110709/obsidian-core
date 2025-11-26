@@ -39,6 +39,10 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 		if err != nil {
 			return fmt.Errorf("input not found: %v", err)
 		}
+		// Check for overflow
+		if totalInput > 0 && utxo.Value > (int64(^uint64(0)>>1)-totalInput) {
+			return fmt.Errorf("input value overflow")
+		}
 		totalInput += utxo.Value
 	}
 
@@ -47,6 +51,10 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 	for _, txOut := range tx.TxOut {
 		if txOut.Value < 0 {
 			return fmt.Errorf("negative output value")
+		}
+		// Check for overflow
+		if totalOutput > 0 && txOut.Value > (int64(^uint64(0)>>1)-totalOutput) {
+			return fmt.Errorf("output value overflow")
 		}
 		totalOutput += txOut.Value
 	}
@@ -62,9 +70,18 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 		return fmt.Errorf("negative fee")
 	}
 
+	// Minimum fee check
+	minFee := int64(1000) // 0.00001 OB minimum
+	if fee < minFee {
+		return fmt.Errorf("fee too low: %d (min: %d)", fee, minFee)
+	}
+
 	// Maximum fee check (prevent accidental high fees)
 	maxFee := totalOutput / 10 // Max 10% fee
-	if fee > maxFee && maxFee > 0 {
+	if maxFee < 100000 {       // At least 0.001 OB max fee
+		maxFee = 100000
+	}
+	if fee > maxFee {
 		return fmt.Errorf("fee too high: %d (max: %d)", fee, maxFee)
 	}
 
