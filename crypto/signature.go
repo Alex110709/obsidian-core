@@ -123,7 +123,7 @@ func KeyToAddress(pubKey *ecdsa.PublicKey) string {
 	// Double hash for checksum
 	checksum := Hash256(versionedHash)[:4]
 	fullHash := append(versionedHash, checksum...)
-	return base58.Encode(fullHash)
+	return "obs" + base58.Encode(fullHash)
 }
 
 // GenerateShieldedAddress generates a shielded address (simplified as zobs prefix)

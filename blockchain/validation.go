@@ -30,6 +30,10 @@ func (b *BlockChain) ValidateTransaction(tx *wire.MsgTx, utxoSet *UTXOSet) error
 		return b.validateTokenTransferOwnershipTransaction(tx, utxoSet)
 	case wire.TxTypeTokenShielded:
 		return b.validateTokenShieldedTransaction(tx, utxoSet)
+	case wire.TxTypeSmartContractDeploy:
+		return b.validateSmartContractDeploy(tx)
+	case wire.TxTypeSmartContractCall:
+		return b.validateSmartContractCall(tx)
 	}
 
 	// 1. Check inputs exist and are unspent

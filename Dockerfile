@@ -1,10 +1,10 @@
 # Build Stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-bookworm AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git
 
 # Copy go mod and sum files
 COPY go.mod ./

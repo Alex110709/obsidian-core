@@ -93,3 +93,42 @@ func (s *Storage) GetBlock(hash []byte) (*wire.MsgBlock, error) {
 
 	return &block, err
 }
+
+// Put stores a key-value pair in a bucket
+func (s *Storage) Put(bucket, key, value []byte) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(bucket)
+		if err != nil {
+			return err
+		}
+		return b.Put(key, value)
+	})
+}
+
+// Get retrieves a value by key from a bucket
+func (s *Storage) Get(bucket, key []byte) ([]byte, error) {
+	var value []byte
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucket)
+		if b == nil {
+			return fmt.Errorf("bucket not found")
+		}
+		value = b.Get(key)
+		if value == nil {
+			return fmt.Errorf("key not found")
+		}
+		return nil
+	})
+	return value, err
+}
+
+// Delete removes a key from a bucket
+func (s *Storage) Delete(bucket, key []byte) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucket)
+		if b == nil {
+			return fmt.Errorf("bucket not found")
+		}
+		return b.Delete(key)
+	})
+}

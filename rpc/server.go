@@ -323,6 +323,14 @@ func (s *Server) handleMethod(req *JSONRPCRequest) (interface{}, error) {
 		return s.z_importviewingkey(req.Params)
 	case "z_shieldcoinbase":
 		return s.z_shieldcoinbase(req.Params)
+	case "shield":
+		return s.shield(req.Params)
+	case "unshield":
+		return s.unshield(req.Params)
+	case "deploycontract":
+		return s.deploycontract(req.Params)
+	case "callcontract":
+		return s.callcontract(req.Params)
 
 	// Mining Pool
 	case "getpoolinfo":

@@ -27,9 +27,17 @@ type TxOut struct {
 type TxType uint8
 
 const (
-	TxTypeTransparent TxType = 0 // Standard transparent transaction
-	TxTypeShielded    TxType = 1 // Shielded transaction (private)
-	TxTypeMixed       TxType = 2 // Mixed (t-addr to z-addr or vice versa)
+	TxTypeTransparent            TxType = 0  // Standard transparent transaction
+	TxTypeShielded               TxType = 1  // Shielded transaction (private)
+	TxTypeMixed                  TxType = 2  // Mixed (t-addr to z-addr or vice versa)
+	TxTypeTokenIssue             TxType = 3  // Token issuance
+	TxTypeTokenTransfer          TxType = 4  // Token transfer
+	TxTypeTokenMint              TxType = 5  // Token minting
+	TxTypeTokenBurn              TxType = 6  // Token burning
+	TxTypeTokenTransferOwnership TxType = 7  // Token ownership transfer
+	TxTypeTokenShielded          TxType = 8  // Token shielded transaction
+	TxTypeSmartContractDeploy    TxType = 9  // Smart contract deployment
+	TxTypeSmartContractCall      TxType = 10 // Smart contract call
 )
 
 // ShieldedSpend represents a shielded input (spending from shielded pool)
@@ -55,6 +63,47 @@ type ShieldedOutput struct {
 	Memo          []byte // Encrypted memo (512 bytes)
 	TokenID       Hash   // Token identifier (zero hash for OB)
 	TokenAmount   int64  // Token amount (0 for OB)
+}
+
+// TokenIssue represents a token issuance
+type TokenIssue struct {
+	Name     string
+	Symbol   string
+	Decimals int
+	Supply   int64
+	Owner    string
+}
+
+// NewTokenIssueTx creates a new token issuance transaction
+func NewTokenIssueTx(owner string, tokenIssue *TokenIssue) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeTokenIssue
+	// Simplified
+	return tx
+}
+
+// NewTokenTransferTx creates a new token transfer transaction
+func NewTokenTransferTx(from, to string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeTokenTransfer
+	// Simplified
+	return tx
+}
+
+// NewTokenShieldedTx creates a new token shielded transaction
+func NewTokenShieldedTx(from, to string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeTokenShielded
+	// Simplified
+	return tx
+}
+
+// NewTokenMintTx creates a new token mint transaction
+func NewTokenMintTx(from, to string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeTokenMint
+	// Simplified
+	return tx
 }
 
 // MsgTx implements the Message interface and represents a bitcoin tx message.
@@ -111,6 +160,47 @@ func NewMsgTx(version int32) *MsgTx {
 func NewShieldedTx(version int32) *MsgTx {
 	tx := NewMsgTx(version)
 	tx.TxType = TxTypeShielded
+	return tx
+}
+
+// NewShieldTx creates a shield transaction (transparent to shielded)
+func NewShieldTx(fromAddress, toShieldedAddress string, amount int64) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeMixed // Mixed for shield/unshield
+
+	// Add transparent input (simplified)
+	tx.AddTxIn(&TxIn{
+		PreviousOutPoint: OutPoint{Hash: Hash{}, Index: 0},
+		SignatureScript:  []byte(fromAddress), // Simplified
+	})
+
+	// Add shielded output (simplified)
+	shieldedOutput := &ShieldedOutput{
+		TokenAmount: amount,
+		// Note: In real implementation, create proper commitments and proofs
+	}
+	tx.AddShieldedOutput(shieldedOutput)
+
+	return tx
+}
+
+// NewUnshieldTx creates an unshield transaction (shielded to transparent)
+func NewUnshieldTx(fromShieldedAddress, toAddress string, amount int64) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeMixed // Mixed for shield/unshield
+
+	// Add shielded spend
+	shieldedSpend := &ShieldedSpend{
+		// Note: In real implementation, add proper nullifier and proof
+	}
+	tx.AddShieldedSpend(shieldedSpend)
+
+	// Add transparent output
+	tx.AddTxOut(&TxOut{
+		Value:    amount,
+		PkScript: []byte(toAddress), // Simplified
+	})
+
 	return tx
 }
 

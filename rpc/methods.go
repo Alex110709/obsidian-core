@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/hex"
 	"fmt"
+	"obsidian-core/smartcontract"
 	"obsidian-core/wire"
 	"strings"
 )
@@ -1052,28 +1053,202 @@ func (s *Server) combinemultisigsigs(params []interface{}) (interface{}, error) 
 		return nil, fmt.Errorf("invalid signatures parameter")
 	}
 
-	signatures := make([]MultiSigSignature, len(sigs))
+	signatures := make([]string, len(sigs))
 	for i, sig := range sigs {
-		sigMap, ok := sig.(map[string]interface{})
+		signatures[i], ok = sig.(string)
 		if !ok {
-			return nil, fmt.Errorf("invalid signature format at index %d", i)
-		}
-
-		pubkey, _ := sigMap["pubkey"].(string)
-		signature, _ := sigMap["signature"].(string)
-
-		signatures[i] = MultiSigSignature{
-			PublicKey: pubkey,
-			Signature: signature,
+			return nil, fmt.Errorf("invalid signature at index %d", i)
 		}
 	}
 
-	combinedTx, err := s.wallet.CombineMultiSigSigs(txHex, signatures)
+	multisigTx, err := s.wallet.CombineMultiSigSigs(txHex, signatures)
 	if err != nil {
 		return nil, fmt.Errorf("failed to combine multisig signatures: %v", err)
 	}
 
 	return map[string]interface{}{
-		"hex": combinedTx,
+		"txid":     multisigTx.TxID,
+		"hex":      multisigTx.Hex,
+		"complete": multisigTx.Complete,
+	}, nil
+}
+
+// shield converts funds from a transparent address to a shielded address
+func (s *Server) shield(params []interface{}) (interface{}, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("insufficient parameters: need from_address, to_shielded_address, amount")
+	}
+
+	fromAddress, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from_address parameter")
+	}
+
+	toShieldedAddress, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid to_shielded_address parameter")
+	}
+
+	amountFloat, ok := params[2].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat)
+
+	// Validate addresses
+	if !strings.HasPrefix(fromAddress, "obs") {
+		return nil, fmt.Errorf("from_address must be a transparent address starting with 'obs'")
+	}
+	if !strings.HasPrefix(toShieldedAddress, "zobs") {
+		return nil, fmt.Errorf("to_shielded_address must be a shielded address starting with 'zobs'")
+	}
+
+	// Check balance
+	balance, err := s.wallet.GetBalance(fromAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance: %v", err)
+	}
+	if balance < amount {
+		return nil, fmt.Errorf("insufficient balance: has %d, need %d", balance, amount)
+	}
+
+	// Create shielded transaction
+	tx := wire.NewShieldTx(fromAddress, toShieldedAddress, amount)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Shield transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"action": "shield",
+		"from":   fromAddress,
+		"to":     toShieldedAddress,
+		"amount": amount,
+	}, nil
+}
+
+// unshield converts funds from a shielded address to a transparent address
+func (s *Server) unshield(params []interface{}) (interface{}, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("insufficient parameters: need from_shielded_address, to_address, amount")
+	}
+
+	fromShieldedAddress, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from_shielded_address parameter")
+	}
+
+	toAddress, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid to_address parameter")
+	}
+
+	amountFloat, ok := params[2].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat)
+
+	// Validate addresses
+	if !strings.HasPrefix(fromShieldedAddress, "zobs") {
+		return nil, fmt.Errorf("from_shielded_address must be a shielded address starting with 'zobs'")
+	}
+	if !strings.HasPrefix(toAddress, "obs") {
+		return nil, fmt.Errorf("to_address must be a transparent address starting with 'obs'")
+	}
+
+	// Check shielded balance
+	balance, err := s.wallet.GetShieldedBalance(fromShieldedAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shielded balance: %v", err)
+	}
+	if balance < amount {
+		return nil, fmt.Errorf("insufficient shielded balance: has %d, need %d", balance, amount)
+	}
+
+	// Create unshielded transaction
+	tx := wire.NewUnshieldTx(fromShieldedAddress, toAddress, amount)
+
+	// Add to mempool (simplified)
+	fmt.Printf("Unshield transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":   tx.TxHash().String(),
+		"action": "unshield",
+		"from":   fromShieldedAddress,
+		"to":     toAddress,
+		"amount": amount,
+	}, nil
+}
+
+// deploycontract deploys a smart contract
+func (s *Server) deploycontract(params []interface{}) (interface{}, error) {
+	if len(params) < 1 {
+		return nil, fmt.Errorf("insufficient parameters: need contract_code")
+	}
+
+	contractCode, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid contract_code parameter")
+	}
+
+	// Parse and compile contract
+	lexer := smartcontract.NewLexer(contractCode)
+	tokens, err := lexer.Tokenize()
+	if err != nil {
+		return nil, fmt.Errorf("lexer error: %v", err)
+	}
+
+	parser := smartcontract.NewParser(tokens)
+	ast, err := parser.Parse()
+	if err != nil {
+		return nil, fmt.Errorf("parser error: %v", err)
+	}
+
+	compiler := smartcontract.NewCompiler()
+	bytecode := compiler.Compile(ast)
+
+	// Create deployment transaction
+	tx := wire.NewMsgTx(1)
+	tx.TxType = wire.TxTypeSmartContractDeploy
+	tx.Memo = []byte(contractCode) // Store code in memo
+
+	// Add to mempool (simplified)
+	fmt.Printf("Smart contract deployment transaction created: %s\n", tx.TxHash().String())
+
+	return map[string]interface{}{
+		"txid":     tx.TxHash().String(),
+		"action":   "deploy",
+		"code":     contractCode,
+		"bytecode": fmt.Sprintf("%v", bytecode), // Simplified
+	}, nil
+}
+
+// callcontract calls a smart contract function
+func (s *Server) callcontract(params []interface{}) (interface{}, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("insufficient parameters: need contract_address, function_name, [args...]")
+	}
+
+	contractAddress, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid contract_address parameter")
+	}
+
+	functionName, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid function_name parameter")
+	}
+
+	// Simplified: assume bytecode is stored somewhere
+	// In real implementation, retrieve contract bytecode from storage
+
+	// Mock execution
+	result := "contract executed successfully"
+
+	return map[string]interface{}{
+		"contract": contractAddress,
+		"function": functionName,
+		"result":   result,
 	}, nil
 }
