@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -147,7 +148,12 @@ func (c *Client) startTor() error {
 		if envDataDir != "" {
 			dataDir = filepath.Join(envDataDir, "tor")
 		} else {
-			dataDir = "/tmp/tor-data"
+			// Use /var/lib/tor for container environments, fallback to /tmp/tor-data
+			if _, err := os.Stat("/var/lib"); err == nil {
+				dataDir = "/var/lib/tor"
+			} else {
+				dataDir = "/tmp/tor-data"
+			}
 		}
 	}
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
@@ -161,12 +167,33 @@ DataDirectory %s
 Log notice stdout
 `, c.config.ProxyAddr, dataDir)
 
-	if err := os.WriteFile(torrcPath, []byte(torrcContent), 0600); err != nil {
+	// Write torrc file with proper permissions for tor user
+	if err := os.WriteFile(torrcPath, []byte(torrcContent), 0644); err != nil {
 		return fmt.Errorf("failed to write torrc: %v", err)
 	}
 
-	// Start Tor process
-	c.process = exec.Command("tor", "-f", torrcPath)
+	// Change ownership to tor user if running as root
+	if os.Geteuid() == 0 {
+		if err := os.Chown(torrcPath, 100, 100); err != nil {
+			// If chown fails, try to make file readable by all
+			os.Chmod(torrcPath, 0644)
+		}
+	}
+
+	// Start Tor process as tor user if running as root
+	cmd := exec.Command("tor", "-f", torrcPath)
+
+	// Run as tor user if we're root
+	if os.Geteuid() == 0 {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{
+				Uid: 100, // tor user UID
+				Gid: 100, // tor group GID
+			},
+		}
+	}
+
+	c.process = cmd
 	c.process.Stdout = os.Stdout
 	c.process.Stderr = os.Stderr
 

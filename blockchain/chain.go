@@ -9,6 +9,7 @@ import (
 	"obsidian-core/wire"
 	"strconv"
 	"strings"
+	// "github.com/ethereum/go-ethereum/core/vm/runtime"
 )
 
 // BlockChain provides functions for working with the bitcoin block chain.
@@ -25,7 +26,6 @@ type BlockChain struct {
 	utxoSet      *UTXOSet
 	mempool      *Mempool
 	feeEstimator *FeeEstimator
-	tokenStore   *TokenStore // Token storage and management
 }
 
 // NewBlockchain returns a BlockChain instance using the provided configuration
@@ -48,7 +48,6 @@ func NewBlockchain(params *chaincfg.Params, pow consensus.PowEngine) (*BlockChai
 		utxoSet:      NewUTXOSet(boltDB),
 		mempool:      NewMempool(),
 		feeEstimator: NewFeeEstimator(),
-		tokenStore:   NewTokenStore(db),
 	}
 
 	// Save genesis block if it doesn't exist
@@ -173,13 +172,6 @@ func (b *BlockChain) ProcessBlock(block *wire.MsgBlock, pow consensus.PowEngine)
 			if err := b.shieldedPool.ProcessShieldedTransaction(tx); err != nil {
 				return fmt.Errorf("failed to process shielded transaction: %v", err)
 			}
-		}
-	}
-
-	// 5b. Process token transactions
-	for _, tx := range block.Transactions {
-		if err := b.processTokenTransaction(tx); err != nil {
-			return fmt.Errorf("failed to process token transaction: %v", err)
 		}
 	}
 
@@ -465,99 +457,7 @@ func (b *BlockChain) GetLatestCheckpoint(height int32) *chaincfg.Checkpoint {
 	return latest
 }
 
-// GetTokenStore returns the token store
-func (b *BlockChain) GetTokenStore() *TokenStore {
-	return b.tokenStore
-}
 
-// processTokenTransaction processes token-related transactions
-func (b *BlockChain) processTokenTransaction(tx *wire.MsgTx) error {
-	switch tx.TxType {
-	case wire.TxTypeTokenIssue:
-		return b.processTokenIssuance(tx)
-	case wire.TxTypeTokenTransfer:
-		return b.processTokenTransfer(tx)
-	case wire.TxTypeTokenMint:
-		return b.processTokenMint(tx)
-	case wire.TxTypeTokenBurn:
-		return b.processTokenBurn(tx)
-	case wire.TxTypeTokenShielded:
-		return b.processTokenShielded(tx)
-	default:
-		// Not a token transaction, nothing to do
-		return nil
-	}
-}
-
-// processTokenMint processes a token minting transaction
-func (b *BlockChain) processTokenMint(tx *wire.MsgTx) error {
-	// Parse token mint data from memo
-	if len(tx.Memo) < 32 {
-		return fmt.Errorf("token mint memo too short")
-	}
-
-	// Extract token ID (first 32 bytes)
-	tokenID := wire.Hash{}
-	copy(tokenID[:], tx.Memo[:32])
-
-	// Parse mint data
-	memoStr := string(tx.Memo[32:])
-	parts := strings.Split(memoStr, "|")
-	if len(parts) != 3 {
-		return fmt.Errorf("invalid token mint memo format")
-	}
-
-	amountStr := parts[0]
-	to := parts[1]
-
-	amount, err := strconv.ParseInt(amountStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid mint amount: %v", err)
-	}
-
-	if amount <= 0 {
-		return fmt.Errorf("mint amount must be positive")
-	}
-
-	// Check if token exists and is mintable
-	token, err := b.tokenStore.GetToken(tokenID)
-	if err != nil {
-		return fmt.Errorf("token does not exist: %v", err)
-	}
-
-	if !token.Mintable {
-		return fmt.Errorf("token is not mintable")
-	}
-
-	// Check sender is token owner (from output address)
-	if len(tx.TxOut) == 0 {
-		return fmt.Errorf("token mint transaction missing output")
-	}
-	sender := string(tx.TxOut[0].PkScript) // Simplified
-
-	if sender != token.Owner {
-		return fmt.Errorf("only token owner can mint tokens")
-	}
-
-	// Mint tokens to recipient
-	err = b.tokenStore.TransferToken(tokenID, sender, to, amount)
-	if err != nil {
-		return fmt.Errorf("failed to mint tokens: %v", err)
-	}
-
-	// Update total supply
-	token.TotalSupply += amount
-
-	fmt.Printf("✓ Token mint: %d tokens minted to %s for token %s\n", amount, to, token.Symbol)
-	return nil
-}
-
-// processTokenTransferOwnership processes a token ownership transfer transaction
-func (b *BlockChain) processTokenTransferOwnership(tx *wire.MsgTx) error {
-	// Parse ownership transfer data from memo
-	if len(tx.Memo) < 32 {
-		return fmt.Errorf("token ownership transfer memo too short")
-	}
 
 	// Extract token ID (first 32 bytes)
 	tokenID := wire.Hash{}
@@ -595,139 +495,11 @@ func (b *BlockChain) processTokenTransferOwnership(tx *wire.MsgTx) error {
 	return nil
 }
 
-// processTokenIssuance processes a token issuance transaction
-func (b *BlockChain) processTokenIssuance(tx *wire.MsgTx) error {
-	// Parse token data from memo (simplified)
-	memoStr := string(tx.Memo)
-	parts := strings.Split(memoStr, "|")
-	if len(parts) != 4 {
-		return fmt.Errorf("invalid token issuance memo format")
-	}
 
-	name := parts[0]
-	symbol := parts[1]
-	decimalsStr := parts[2]
-	supplyStr := parts[3]
 
-	decimals, err := strconv.Atoi(decimalsStr)
-	if err != nil {
-		return fmt.Errorf("invalid decimals: %v", err)
-	}
 
-	supply, err := strconv.ParseInt(supplyStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid supply: %v", err)
-	}
 
-	// Get issuer from output
-	if len(tx.TxOut) == 0 {
-		return fmt.Errorf("token issuance missing output")
-	}
-	issuer := string(tx.TxOut[0].PkScript) // Simplified
 
-	// Generate token ID from transaction hash
-	tokenID := tx.TxHash()
-
-	// Issue token
-	err = b.tokenStore.IssueToken(tokenID, name, symbol, uint8(decimals), supply, issuer)
-	if err != nil {
-		return fmt.Errorf("failed to issue token: %v", err)
-	}
-
-	fmt.Printf("✓ Token issued: %s (%s) - Supply: %d\n", name, symbol, supply)
-	return nil
-}
-
-// processTokenTransfer processes a token transfer transaction
-func (b *BlockChain) processTokenTransfer(tx *wire.MsgTx) error {
-	// Parse transfer data from memo
-	if len(tx.Memo) < 32 {
-		return fmt.Errorf("token transfer memo too short")
-	}
-
-	// Extract token ID (first 32 bytes)
-	tokenID := wire.Hash{}
-	copy(tokenID[:], tx.Memo[:32])
-
-	// Parse transfer data
-	memoStr := string(tx.Memo[32:])
-	parts := strings.Split(memoStr, "|")
-	if len(parts) != 4 {
-		return fmt.Errorf("invalid token transfer memo format")
-	}
-
-	from := parts[1]
-	to := parts[2]
-	amountStr := parts[3]
-
-	amount, err := strconv.ParseInt(amountStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid transfer amount: %v", err)
-	}
-
-	// Transfer tokens
-	err = b.tokenStore.TransferToken(tokenID, from, to, amount)
-	if err != nil {
-		return fmt.Errorf("failed to transfer token: %v", err)
-	}
-
-	fmt.Printf("✓ Token transfer: %d tokens from %s to %s\n", amount, from, to)
-	return nil
-}
-
-// processTokenShielded processes a token shielded transaction
-func (b *BlockChain) processTokenShielded(tx *wire.MsgTx) error {
-	// Parse token shielded data from memo
-	if len(tx.Memo) < 32 {
-		return fmt.Errorf("token shielded memo too short")
-	}
-
-	// Extract token ID (first 32 bytes)
-	tokenID := wire.Hash{}
-	copy(tokenID[:], tx.Memo[:32])
-
-	// Parse shielded data
-	memoStr := string(tx.Memo[32:])
-	parts := strings.Split(memoStr, "|")
-	if len(parts) != 4 {
-		return fmt.Errorf("invalid token shielded memo format")
-	}
-
-	from := parts[1]
-	to := parts[2]
-	amountStr := parts[3]
-
-	amount, err := strconv.ParseInt(amountStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid shielded amount: %v", err)
-	}
-
-	// Process shielded transaction
-	// For shielding: deduct from transparent balance
-	// For unshielding: add to transparent balance
-	// Simplified implementation - in production, integrate with shielded pool
-
-	// Check if 'to' is a z-address (starts with 'zobs')
-	isShielding := strings.HasPrefix(to, "zobs")
-
-	if isShielding {
-		// Shielding: t-addr to z-addr
-		err = b.tokenStore.TransferToken(tokenID, from, to, amount)
-		if err != nil {
-			return fmt.Errorf("failed to shield tokens: %v", err)
-		}
-		fmt.Printf("✓ Token shielding: %d tokens from %s to shielded pool\n", amount, from)
-	} else {
-		// Unshielding: z-addr to t-addr
-		err = b.tokenStore.TransferToken(tokenID, from, to, amount)
-		if err != nil {
-			return fmt.Errorf("failed to unshield tokens: %v", err)
-		}
-		fmt.Printf("✓ Token unshielding: %d tokens from shielded pool to %s\n", amount, to)
-	}
-
-	return nil
-}
 
 // processTokenBurn processes a token burning transaction
 func (b *BlockChain) processTokenBurn(tx *wire.MsgTx) error {
@@ -782,4 +554,11 @@ func (b *BlockChain) processTokenBurn(tx *wire.MsgTx) error {
 
 	fmt.Printf("✓ Token burn: %d tokens burned from %s for token %s\n", amount, from, token.Symbol)
 	return nil
+}
+
+// GetBalance returns the balance for a given address
+func (b *BlockChain) GetBalance(address string) (int64, error) {
+	// This is a simplified implementation that uses UTXO set
+	// In production, you'd want proper address indexing
+	return b.utxoSet.GetBalance(address)
 }

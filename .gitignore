@@ -1,6 +1,8 @@
 *.db
 *.log
-obsidiand
+/obsidiand
 .DS_Store
 .dockerignore
 .gitignore
+wallet.py
+wallet.json

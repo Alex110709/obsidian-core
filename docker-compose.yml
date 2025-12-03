@@ -1,6 +1,6 @@
 services:
   obsidian-node:
-    image: yuchanshin/obsidian-node:latest
+    image: yuchanshin/obsidian-node:v0.1.1
     pull_policy: always
     container_name: obsidian-node
     environment:

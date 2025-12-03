@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"obsidian-core/wire"
 	"sync"
@@ -147,8 +148,70 @@ func (sp *ShieldedPool) GetMerkleRoot() []byte {
 		return make([]byte, 32) // Empty root
 	}
 
-	// Simplified Merkle root calculation
-	return sp.commitmentTree[len(sp.commitmentTree)-1]
+	// Calculate proper Merkle root
+	return sp.calculateMerkleRoot(sp.commitmentTree)
+}
+
+// calculateMerkleRoot calculates the Merkle root from a list of hashes
+func (sp *ShieldedPool) calculateMerkleRoot(leaves [][]byte) []byte {
+	if len(leaves) == 0 {
+		return make([]byte, 32)
+	}
+
+	if len(leaves) == 1 {
+		return leaves[0]
+	}
+
+	// Build Merkle tree bottom-up
+	current := make([][]byte, len(leaves))
+	copy(current, leaves)
+
+	for len(current) > 1 {
+		next := make([][]byte, 0, (len(current)+1)/2)
+
+		for i := 0; i < len(current); i += 2 {
+			if i+1 < len(current) {
+				// Hash pair
+				hash := sha256.Sum256(append(current[i], current[i+1]...))
+				next = append(next, hash[:])
+			} else {
+				// Odd one out - duplicate it
+				hash := sha256.Sum256(append(current[i], current[i]...))
+				next = append(next, hash[:])
+			}
+		}
+
+		current = next
+	}
+
+	return current[0]
+}
+
+// RollbackTransaction removes a shielded transaction from the pool
+func (sp *ShieldedPool) RollbackTransaction(tx *wire.MsgTx) error {
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+
+	// Remove commitments from shielded outputs
+	for _, output := range tx.ShieldedOutputs {
+		cmKey := string(output.Cmu) // Note commitment
+		delete(sp.commitments, cmKey)
+		sp.totalShieldedValue -= output.TokenAmount // Use TokenAmount as value
+	}
+
+	// Remove nullifiers from shielded spends (they become unspent)
+	for _, spend := range tx.ShieldedSpends {
+		nfKey := string(spend.Nullifier)
+		delete(sp.nullifiers, nfKey)
+	}
+
+	// Rebuild commitment tree (simplified - remove last commitments)
+	// In production, this would need proper tree reconstruction
+	if len(tx.ShieldedOutputs) > 0 && len(sp.commitmentTree) >= len(tx.ShieldedOutputs) {
+		sp.commitmentTree = sp.commitmentTree[:len(sp.commitmentTree)-len(tx.ShieldedOutputs)]
+	}
+
+	return nil
 }
 
 // GetTotalShieldedValue returns the total value in the shielded pool

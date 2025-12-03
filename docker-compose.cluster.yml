@@ -4,7 +4,7 @@
 services:
   # Seed Node (Bootstrap node)
   seed-node:
-    image: yuchanshin/obsidian-node:v1.1.0
+    image: obsidian-node:test
     container_name: obs-seed
     hostname: seed-node
     environment:
@@ -21,7 +21,7 @@ services:
 
   # Node 1 (connects to seed)
   node1:
-    image: yuchanshin/obsidian-node:v1.1.0
+    image: obsidian-node:test
     container_name: obs-node-1
     hostname: node1
     environment:
@@ -41,7 +41,7 @@ services:
 
   # Node 2 (connects to seed and node1)
   node2:
-    image: yuchanshin/obsidian-node:v1.1.0
+    image: obsidian-node:test
     container_name: obs-node-2
     hostname: node2
     environment:
@@ -62,7 +62,7 @@ services:
 
   # Node 3 (connects to all)
   node3:
-    image: yuchanshin/obsidian-node:v1.1.0
+    image: obsidian-node:test
     container_name: obs-node-3
     hostname: node3
     environment:

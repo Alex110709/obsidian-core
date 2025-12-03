@@ -4,13 +4,14 @@ import "obsidian-core/wire"
 
 // CalcBlockSubsidy calculates the block reward based on block height.
 // The reward halves every HalvingInterval blocks until it reaches MinimumBlockReward.
+// Returns reward in satoshis (1 OBS = 100,000,000 satoshis).
 func (p *Params) CalcBlockSubsidy(height int32) int64 {
 	// Calculate number of halvings
 	halvings := height / p.HalvingInterval
 
 	// Reward becomes zero after 64 halvings (extremely far in future)
 	if halvings >= 64 {
-		return p.MinimumBlockReward
+		return p.MinimumBlockReward * 100000000
 	}
 
 	// Start with base reward
@@ -24,7 +25,7 @@ func (p *Params) CalcBlockSubsidy(height int32) int64 {
 		subsidy = p.MinimumBlockReward
 	}
 
-	return subsidy
+	return subsidy * 100000000 // Convert OBS to satoshis
 }
 
 // TotalSupplyAtHeight calculates the total supply at a given height.
@@ -32,12 +33,8 @@ func (p *Params) TotalSupplyAtHeight(height int32) int64 {
 	total := p.InitialSupply
 
 	for h := int32(0); h < height; h++ {
-		total += p.CalcBlockSubsidy(h)
-
-		// Early exit if max reached
-		if total >= p.MaxMoney {
-			return p.MaxMoney
-		}
+		reward := p.CalcBlockSubsidy(h)
+		total += reward
 	}
 
 	return total

@@ -21,6 +21,11 @@ type CPUMiner struct {
 	pow         consensus.PowEngine
 	minerAddr   string
 	syncManager BlockBroadcaster
+
+	// Hash rate tracking
+	hashCount    uint64
+	startTime    time.Time
+	lastHashRate float64
 }
 
 func NewCPUMiner(chain *blockchain.BlockChain, params *chaincfg.Params, pow consensus.PowEngine, minerAddr string) *CPUMiner {
@@ -29,12 +34,27 @@ func NewCPUMiner(chain *blockchain.BlockChain, params *chaincfg.Params, pow cons
 		params:    params,
 		pow:       pow,
 		minerAddr: minerAddr,
+		startTime: time.Now(),
 	}
 }
 
 // SetSyncManager sets the sync manager for broadcasting blocks
 func (m *CPUMiner) SetSyncManager(sm BlockBroadcaster) {
 	m.syncManager = sm
+}
+
+// GetHashRate returns the current hash rate in hashes per second
+func (m *CPUMiner) GetHashRate() float64 {
+	elapsed := time.Since(m.startTime).Seconds()
+	if elapsed == 0 {
+		return 0
+	}
+	return float64(m.hashCount) / elapsed
+}
+
+// UpdateHashCount adds hashes to the counter
+func (m *CPUMiner) UpdateHashCount(count uint64) {
+	m.hashCount += count
 }
 
 func (m *CPUMiner) Start() {
@@ -73,11 +93,22 @@ func (m *CPUMiner) Start() {
 			Nonce:     0,
 		})
 
-		// TODO: Add pending transactions from mempool
-		// For now, only coinbase transaction
+		// Add pending transactions from mempool
+		mempool := m.chain.Mempool()
+		if mempool != nil {
+			// Get transactions by priority (fee per KB)
+			pendingTxs := mempool.GetTransactionsByPriority(100) // Max 100 txs per block
+			for _, tx := range pendingTxs {
+				// Skip coinbase transactions
+				if !tx.IsCoinbase() {
+					newBlock.AddTransaction(tx)
+				}
+			}
+		}
 
-		// Calculate total fees from transactions (currently 0, no mempool)
-		totalFees := chaincfg.CalcBlockFees(newBlock.Transactions)
+		// Calculate total fees from transactions
+		// TODO: Implement proper fee calculation with UTXO lookup
+		totalFees := int64(0) // For now, no fees until UTXO lookup is implemented
 
 		// Total reward = subsidy + fees
 		totalReward := blockSubsidy + totalFees
@@ -92,6 +123,9 @@ func (m *CPUMiner) Start() {
 		// Try to find a valid nonce
 		maxAttempts := uint32(1000000) // Reasonable attempts for production
 		nonce, solution, found := m.pow.SolveWithLimit(&newBlock.Header, maxAttempts)
+
+		// Update hash count for rate calculation
+		m.UpdateHashCount(uint64(maxAttempts))
 
 		if found {
 			newBlock.Header.Nonce = nonce
@@ -166,6 +200,9 @@ func (m *CPUMiner) mineGenesisBlock() {
 
 	maxAttempts := uint32(10000000) // 10 million attempts
 	nonce, solution, found := m.pow.SolveWithLimit(&genesis.Header, maxAttempts)
+
+	// Update hash count for rate calculation
+	m.UpdateHashCount(uint64(maxAttempts))
 
 	if !found {
 		fmt.Printf("✗ Genesis mining failed after %d attempts\n", maxAttempts)

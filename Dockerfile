@@ -30,8 +30,14 @@ RUN apk --no-cache add ca-certificates tor
 # Copy binary from builder
 COPY --from=builder /app/obsidiand .
 
-# Create Tor data directory
-RUN mkdir -p /var/lib/tor && chown -R tor:tor /var/lib/tor
+# Make binary executable and create Tor data directory
+RUN chmod +x ./obsidiand && \
+    mkdir -p /var/lib/tor && \
+    chown -R tor:tor /var/lib/tor && \
+    chmod 700 /var/lib/tor
+
+# Set environment variables for Tor
+ENV DATA_DIR=/var/lib
 
 # Expose ports
 EXPOSE 8333

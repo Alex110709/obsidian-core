@@ -72,3 +72,27 @@ type ShieldedTxInfo struct {
 	BlockHash string `json:"blockhash,omitempty"`
 	Time      int64  `json:"time"`
 }
+
+// MultiSigInfo represents information about a multisig address.
+type MultiSigInfo struct {
+	Address      string   `json:"address"`
+	RedeemScript string   `json:"redeemscript"`
+	M            int      `json:"m"`
+	N            int      `json:"n"`
+	PublicKeys   []string `json:"pubkeys"`
+}
+
+// MultiSigTx represents a multisig transaction.
+type MultiSigTx struct {
+	TxID        string   `json:"txid"`
+	Hex         string   `json:"hex"`
+	Complete    bool     `json:"complete"`
+	MissingSigs int      `json:"missing_sigs"`
+	Signatures  []string `json:"signatures,omitempty"`
+}
+
+// MultiSigSignature represents a signature for multisig.
+type MultiSigSignature struct {
+	PublicKey string `json:"pubkey"`
+	Signature string `json:"signature"`
+}

@@ -94,12 +94,17 @@ func (s *Server) getMiningInfo(params []interface{}) (interface{}, error) {
 	currentHeight := s.chain.Height()
 	blockReward := s.chain.Params().CalcBlockSubsidy(currentHeight + 1)
 
+	var hashesPerSec int64
+	if s.miner != nil {
+		hashesPerSec = int64(s.miner.GetHashRate())
+	}
+
 	info := MiningInfo{
 		Blocks:       currentHeight,
 		CurrentHash:  hash.String(),
 		Difficulty:   block.Header.Bits,
 		MiningActive: s.miner != nil,
-		HashesPerSec: 0, // TODO: Implement hash rate calculation
+		HashesPerSec: hashesPerSec,
 		BlockReward:  blockReward,
 	}
 
@@ -130,6 +135,87 @@ func (s *Server) getBlockReward(params []interface{}) (interface{}, error) {
 	}
 
 	return result, nil
+}
+
+// getnewaddress generates a new transparent t-address.
+func (s *Server) getnewaddress(params []interface{}) (interface{}, error) {
+	// Generate new transparent address
+	addr, err := s.wallet.GetNewAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate transparent address: %v", err)
+	}
+
+	return addr, nil
+}
+
+// getbalance returns the balance for a transparent address.
+func (s *Server) getbalance(params []interface{}) (interface{}, error) {
+	if len(params) < 1 {
+		return nil, fmt.Errorf("missing address parameter")
+	}
+
+	address, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid address parameter")
+	}
+
+	// Get transparent balance
+	balance, err := s.wallet.GetBalance(address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance: %v", err)
+	}
+
+	result := map[string]interface{}{
+		"address":     address,
+		"balance":     balance,
+		"balance_obs": float64(balance) / 100000000.0,
+	}
+
+	return result, nil
+}
+
+// sendtoaddress sends funds from one transparent address to another.
+func (s *Server) sendtoaddress(params []interface{}) (interface{}, error) {
+	if len(params) < 3 {
+		return nil, fmt.Errorf("missing parameters: sendtoaddress <from_address> <to_address> <amount>")
+	}
+
+	fromAddress, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid from_address parameter")
+	}
+
+	toAddress, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid to_address parameter")
+	}
+
+	amountFloat, ok := params[2].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount parameter")
+	}
+	amount := int64(amountFloat * 100000000) // Convert to satoshis
+
+	// Send transparent transaction
+	txid, err := s.wallet.SendToAddress(fromAddress, toAddress, amount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send transaction: %v", err)
+	}
+
+	result := map[string]interface{}{
+		"txid":   txid,
+		"from":   fromAddress,
+		"to":     toAddress,
+		"amount": amount,
+	}
+
+	return result, nil
+}
+
+// listaddresses lists all transparent t-addresses in the wallet.
+func (s *Server) listaddresses(params []interface{}) (interface{}, error) {
+	addresses := s.wallet.ListAddresses()
+	return addresses, nil
 }
 
 // estimateFee estimates the fee for a transaction of given size.
@@ -791,5 +877,203 @@ func (s *Server) burntoken(params []interface{}) (interface{}, error) {
 		"amount": amount,
 		"from":   fromAddress,
 		"action": "burn",
+	}, nil
+}
+
+// getPeerInfo returns information about connected peers
+func (s *Server) getPeerInfo(params []interface{}) (interface{}, error) {
+	if s.syncManager == nil {
+		return []interface{}{}, nil
+	}
+
+	// Type assertion to access methods
+	sm, ok := s.syncManager.(interface {
+		GetPeerInfo() []interface{}
+	})
+	if !ok {
+		return []interface{}{}, nil
+	}
+
+	return sm.GetPeerInfo(), nil
+}
+
+// getConnectionCount returns the number of connections
+func (s *Server) getConnectionCount(params []interface{}) (interface{}, error) {
+	if s.syncManager == nil {
+		return map[string]int{"inbound": 0, "outbound": 0}, nil
+	}
+
+	sm, ok := s.syncManager.(interface {
+		GetConnectionStats() (int, int, int)
+	})
+	if !ok {
+		return map[string]int{"inbound": 0, "outbound": 0}, nil
+	}
+
+	inbound, outbound, banned := sm.GetConnectionStats()
+	return map[string]int{
+		"inbound":  inbound,
+		"outbound": outbound,
+		"banned":   banned,
+	}, nil
+}
+
+// createmultisig creates a multisig address
+func (s *Server) createmultisig(params []interface{}) (interface{}, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("insufficient parameters: need nrequired, keys")
+	}
+
+	nRequiredFloat, ok := params[0].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid nrequired parameter")
+	}
+	nRequired := int(nRequiredFloat)
+
+	keys, ok := params[1].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid keys parameter")
+	}
+
+	publicKeys := make([]string, len(keys))
+	for i, key := range keys {
+		publicKeys[i], ok = key.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid public key at index %d", i)
+		}
+	}
+
+	multisigInfo, err := s.wallet.CreateMultiSigAddress(nRequired, publicKeys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create multisig address: %v", err)
+	}
+
+	return map[string]interface{}{
+		"address":      multisigInfo.Address,
+		"redeemscript": multisigInfo.RedeemScript,
+		"m":            multisigInfo.M,
+		"n":            multisigInfo.N,
+		"pubkeys":      multisigInfo.PublicKeys,
+	}, nil
+}
+
+// addmultisigaddress adds a multisig address to the wallet
+func (s *Server) addmultisigaddress(params []interface{}) (interface{}, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("insufficient parameters: need nrequired, keys")
+	}
+
+	nRequiredFloat, ok := params[0].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid nrequired parameter")
+	}
+	nRequired := int(nRequiredFloat)
+
+	keys, ok := params[1].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid keys parameter")
+	}
+
+	publicKeys := make([]string, len(keys))
+	for i, key := range keys {
+		publicKeys[i], ok = key.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid public key at index %d", i)
+		}
+	}
+
+	account := ""
+	if len(params) > 2 {
+		account, _ = params[2].(string)
+	}
+
+	address, err := s.wallet.AddMultiSigAddress(nRequired, publicKeys, account)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add multisig address: %v", err)
+	}
+
+	return address, nil
+}
+
+// signmultisigtx signs a multisig transaction
+func (s *Server) signmultisigtx(params []interface{}) (interface{}, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("insufficient parameters: need txhex, redeemscript")
+	}
+
+	txHex, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid txhex parameter")
+	}
+
+	redeemScript, ok := params[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid redeemscript parameter")
+	}
+
+	var privateKeys []string
+	if len(params) > 2 {
+		keys, ok := params[2].([]interface{})
+		if ok {
+			privateKeys = make([]string, len(keys))
+			for i, key := range keys {
+				privateKeys[i], _ = key.(string)
+			}
+		}
+	}
+
+	multisigTx, err := s.wallet.SignMultiSigTx(txHex, redeemScript, privateKeys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign multisig transaction: %v", err)
+	}
+
+	return map[string]interface{}{
+		"txid":         multisigTx.TxID,
+		"hex":          multisigTx.Hex,
+		"complete":     multisigTx.Complete,
+		"missing_sigs": multisigTx.MissingSigs,
+		"signatures":   multisigTx.Signatures,
+	}, nil
+}
+
+// combinemultisigsigs combines multiple multisig signatures
+func (s *Server) combinemultisigsigs(params []interface{}) (interface{}, error) {
+	if len(params) < 2 {
+		return nil, fmt.Errorf("insufficient parameters: need txhex, signatures")
+	}
+
+	txHex, ok := params[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid txhex parameter")
+	}
+
+	sigs, ok := params[1].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid signatures parameter")
+	}
+
+	signatures := make([]MultiSigSignature, len(sigs))
+	for i, sig := range sigs {
+		sigMap, ok := sig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid signature format at index %d", i)
+		}
+
+		pubkey, _ := sigMap["pubkey"].(string)
+		signature, _ := sigMap["signature"].(string)
+
+		signatures[i] = MultiSigSignature{
+			PublicKey: pubkey,
+			Signature: signature,
+		}
+	}
+
+	combinedTx, err := s.wallet.CombineMultiSigSigs(txHex, signatures)
+	if err != nil {
+		return nil, fmt.Errorf("failed to combine multisig signatures: %v", err)
+	}
+
+	return map[string]interface{}{
+		"hex": combinedTx,
 	}, nil
 }

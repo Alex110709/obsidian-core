@@ -162,7 +162,9 @@ func (b *BlockChain) disconnectBlock(block *wire.MsgBlock) error {
 	// Rollback shielded pool
 	for _, tx := range block.Transactions {
 		if tx.IsShielded() {
-			// TODO: Implement shielded pool rollback
+			if err := b.shieldedPool.RollbackTransaction(tx); err != nil {
+				return fmt.Errorf("failed to rollback shielded transaction: %v", err)
+			}
 		}
 	}
 
