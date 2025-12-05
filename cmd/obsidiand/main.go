@@ -107,18 +107,12 @@ func main() {
 	// Initialize PoW
 	pow := consensus.NewDarkMatter()
 
-	// Single startup info line
-	fmt.Printf("Obsidian Node [%s] | DarkMatter PoW | Tor: %s | Block: %.0fs/%dMB | Supply: %d/%d\n",
-		params.Name, torStatus, params.TargetTimePerBlock.Seconds(),
-		params.BlockMaxSize/(1024*1024), params.InitialSupply, params.MaxMoney)
-
 	// Initialize Blockchain
 	chain, err := blockchain.NewBlockchain(&params, pow)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize blockchain: %v", err)
 	}
 	defer chain.Close()
-	logrus.Debugf("Blockchain height: %d", chain.Height())
 
 	// Initialize P2P Sync Manager
 	syncManager := network.NewSyncManager(chain, peerManager, pow)
@@ -136,7 +130,6 @@ func main() {
 			logrus.Errorf("Failed to start P2P listener: %v", err)
 		}
 	}()
-	logrus.Infof("P2P listening on %s (peers: %d)", p2pAddr, syncManager.GetPeerCount())
 
 	// Initialize mining configuration
 	minerAddr := os.Getenv("MINER_ADDRESS")
@@ -163,6 +156,7 @@ func main() {
 
 	// Start Pool Server if enabled
 	var poolServer *stratum.StratumPool
+	poolAddr := ""
 	if enablePoolServer {
 		poolServer = stratum.NewStratumPool(chain, &params, pow, minerAddr, poolListenAddr)
 		if err := poolServer.Start(); err != nil {
@@ -173,12 +167,17 @@ func main() {
 			} else {
 				miningStatus = "pool"
 			}
-			logrus.Infof("Pool server on %s", poolListenAddr)
+			poolAddr = poolListenAddr
 		}
 	}
 
-	logrus.Infof("Mining: %s | Reward: %d OBS (halves every %s blocks)",
-		miningStatus, params.BaseBlockReward, formatNumber(params.HalvingInterval))
+	// Single startup summary line
+	startupMsg := fmt.Sprintf("Node: %s | PoW: DarkMatter | Tor: %s | P2P: %s (peers:%d) | Mining: %s | Height: %d",
+		params.Name, torStatus, p2pAddr, syncManager.GetPeerCount(), miningStatus, chain.Height())
+	if poolAddr != "" {
+		startupMsg += fmt.Sprintf(" | Pool: %s", poolAddr)
+	}
+	fmt.Println(startupMsg)
 
 	// Initialize and Start RPC Server
 	rpcServer := rpcserver.NewServer(chain, miner, syncManager, cfg.RPCAddr)
