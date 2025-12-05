@@ -388,9 +388,9 @@ Official Docker images are available at:
 docker pull yuchanshin/obsidian-node:latest
 
 # Specific versions
+docker pull yuchanshin/obsidian-node:v1.2.4
 docker pull yuchanshin/obsidian-node:v1.2.3
 docker pull yuchanshin/obsidian-node:v1.2.2
-docker pull yuchanshin/obsidian-node:v1.2.1
 ```
 
 **Supported architectures:**
@@ -524,7 +524,12 @@ The node uses BoltDB for blockchain storage. For best performance:
 
 ## Recent Updates
 
-### v1.2.3 (Latest)
+### v1.2.4 (Latest)
+- **P2P**: Increased handshake timeout from 30s to 60s for better network stability
+- **Debugging**: Added comprehensive debug logging for P2P handshake process
+- **Reliability**: Improved peer connection reliability on slow networks
+
+### v1.2.3
 - **Logging**: Replaced emojis with text labels for better terminal compatibility
 - **Format**: `[MINING]`, `[OK]`, `[SUCCESS]`, `[ERROR]`, `[BROADCAST]`, `[LAUNCH]`, `[PEER]`
 - **Compatibility**: Works on all terminals and logging systems
