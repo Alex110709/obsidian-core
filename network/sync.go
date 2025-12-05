@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Connection limits
@@ -735,12 +737,14 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 		UserAgent: "Obsidian/2.0.0",
 	}
 
-	handshakeTimeout := 30 * time.Second
+	handshakeTimeout := 60 * time.Second
 
 	// Channel for send/receive errors
 	sendErrCh := make(chan error, 1)
 	recvErrCh := make(chan error, 1)
 	versionCh := make(chan *VersionMessage, 1)
+
+	logrus.Debugf("Starting handshake with %s (inbound: %v)", peer.addr, peer.inbound)
 
 	// Send our version in a goroutine (non-blocking)
 	go func() {
@@ -748,16 +752,25 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 		if peer.inbound {
 			time.Sleep(10 * time.Millisecond)
 		}
-		sendErrCh <- peer.SendMessage(MsgTypeVersion, version)
+		logrus.Debugf("Sending version to %s", peer.addr)
+		err := peer.SendMessage(MsgTypeVersion, version)
+		if err != nil {
+			logrus.Debugf("Failed to send version to %s: %v", peer.addr, err)
+		}
+		sendErrCh <- err
 	}()
 
 	// Receive peer's version in a goroutine (non-blocking)
 	go func() {
+		logrus.Debugf("Waiting for version from %s", peer.addr)
 		msg, err := peer.ReceiveMessageWithTimeout(handshakeTimeout)
 		if err != nil {
+			logrus.Debugf("Failed to receive message from %s: %v", peer.addr, err)
 			recvErrCh <- fmt.Errorf("failed to receive version: %v", err)
 			return
 		}
+
+		logrus.Debugf("Received message type %s from %s", msg.Type, peer.addr)
 
 		if msg.Type != MsgTypeVersion {
 			peer.AdjustScore(ScoreProtocolViolation)
@@ -771,6 +784,7 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 		peerVersion := &VersionMessage{}
 		if err := decoder.Decode(peerVersion); err != nil {
 			peer.AdjustScore(ScoreProtocolViolation)
+			logrus.Debugf("Failed to decode version from %s: %v", peer.addr, err)
 			recvErrCh <- fmt.Errorf("failed to decode version: %v", err)
 			return
 		}
@@ -782,6 +796,7 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 			return
 		}
 
+		logrus.Debugf("Version validated from %s (height: %d)", peer.addr, peerVersion.Height)
 		versionCh <- peerVersion
 		recvErrCh <- nil
 	}()
@@ -805,6 +820,7 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 			peerVersion = <-versionCh
 		case <-time.After(handshakeTimeout):
 			peer.AdjustScore(ScoreTimeout)
+			logrus.Debugf("Handshake timeout with %s (sendErr: %v, recvErr: %v)", peer.addr, sendErr, recvErr)
 			return fmt.Errorf("handshake timeout")
 		}
 	}

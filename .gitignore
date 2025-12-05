@@ -6,3 +6,5 @@
 .gitignore
 wallet.py
 wallet.json
+gui_wallet.json
+.gitignore
