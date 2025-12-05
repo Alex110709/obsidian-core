@@ -118,16 +118,16 @@ The fastest way to run Obsidian Core:
 
 ```bash
 # Pull and run the latest version
-docker pull your-dockerhub-username/obsidian-core:latest
-docker run -d -p 8334:8334 -p 8333:8333 your-dockerhub-username/obsidian-core:latest
+docker pull yuchanshin/obsidian-node:latest
+docker run -d -p 8333:8333 -p 8545:8545 yuchanshin/obsidian-node:latest
 
 # With custom configuration
 docker run -d \
-  -p 8334:8334 -p 8333:8333 \
+  -p 8333:8333 -p 8545:8545 \
   -e SOLO_MINING=true \
   -e MINER_ADDRESS=YourAddress \
-  -v obsidian-data:/root/.obsidian \
-  your-dockerhub-username/obsidian-core:latest
+  -v obsidian-data:/home/obsidian/data \
+  yuchanshin/obsidian-node:latest
 ```
 
 ### Docker Compose Deployments
@@ -383,10 +383,19 @@ GOMAXPROCS=4
 ## Docker Hub
 
 Official Docker images are available at:
+```bash
+# Latest version
+docker pull yuchanshin/obsidian-node:latest
+
+# Specific versions
+docker pull yuchanshin/obsidian-node:v1.2.2
+docker pull yuchanshin/obsidian-node:v1.2.1
+docker pull yuchanshin/obsidian-node:v1.2.0
 ```
-docker pull your-dockerhub-username/obsidian-core:latest
-docker pull your-dockerhub-username/obsidian-core:v1.1.0
-```
+
+**Supported architectures:**
+- linux/amd64 (x86_64)
+- linux/arm64 (ARM 64-bit)
 
 ## Contributing
 
@@ -514,6 +523,16 @@ The node uses BoltDB for blockchain storage. For best performance:
 - Check for memory leaks in logs
 
 ## Recent Updates
+
+### v1.2.2 (Latest)
+- **Logging**: Consolidated startup logs into single comprehensive line
+- **Monitoring**: All critical info in one line (Network, PoW, Tor, P2P, Mining, Height)
+- **UX**: Dramatically reduced log spam when running multiple nodes
+- **Documentation**: Complete environment variables reference with examples
+
+### v1.2.1
+- **Environment Variables**: Added comprehensive documentation for all configuration options
+- **Logging**: Improved structured logging with reduced verbosity
 
 ### v1.2.0 (Production Release)
 - **Security**: Rate limiting, request validation, non-root Docker user
