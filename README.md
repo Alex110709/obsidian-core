@@ -6,19 +6,22 @@ A privacy-focused cryptocurrency with shielded transactions, encrypted memos, an
 
 - **Privacy**: Shielded transactions with zk-SNARK-inspired proofs
 - **Tokens**: Custom token creation and transfer without smart contracts
-- **Fast**: 2-minute block time with 3.2MB blocks
+- **Fast**: 20-second block time with 30M gas limit
 - **Secure**: Bitcoin-compatible difficulty adjustment
 - **Anonymous**: Optional Tor networking
 - **Multi-platform**: Linux, macOS, Windows support
+- **GUI Wallet**: Beautiful desktop wallet with full privacy support
 
 ## Specifications
 
-- **Block Time**: 2 minutes
-- **Block Size**: 3.2MB
+- **Block Time**: 20 seconds
+- **Gas Limit**: 30M (EIP-1559 style)
 - **Total Supply**: 100M OBS
+- **Block Reward**: 25 OBS (annual halving every 1,577,000 blocks)
 - **Consensus**: DarkMatter PoW (AES/SHA256 hybrid)
 - **Privacy**: Shielded addresses (zobs*), encrypted memos
 - **Tokens**: ERC-20 style tokens with shielded transfers
+- **Burn Redistribution**: 0.1% of burned OBS redistributed to miners
 
 ## Privacy Features (NEW in v1.1.0)
 
@@ -59,6 +62,48 @@ Create and manage custom tokens without smart contracts. Full token lifecycle su
 - `gettokenbalance` - Check balances
 
 See [Token Guide](./docs/token-guide.md) for detailed documentation.
+
+## GUI Wallet
+
+Obsidian includes a beautiful desktop wallet with full privacy support.
+
+### Features
+
+- 🌑 **Dark Modern UI**: Clean, professional interface
+- 🔐 **BIP39 Recovery**: 24-word mnemonic phrase backup
+- 👁️ **Balance Overview**: Real-time balance across all addresses
+- 📤 **Easy Sending**: Send to transparent or shielded addresses
+- 📥 **Address Generation**: Create new transparent/shielded addresses
+- 🔒 **Auto Shield/Unshield**: Automatic privacy routing
+- 📊 **Transaction History**: Track all your transactions
+- 💾 **Wallet Backup**: Export and import wallet files
+
+### Quick Start
+
+```bash
+# Install dependencies
+pip3 install base58 ecdsa requests coincurve mnemonic
+
+# Run GUI wallet
+python3 wallet_gui.py
+```
+
+### Usage
+
+1. **Create New Wallet**: Generate a new wallet with 24-word recovery phrase
+2. **Load Wallet**: Import existing wallet from file or recovery phrase
+3. **Receive**: Generate new addresses (transparent or shielded)
+4. **Send**: Send OBS to any address (auto shield/unshield)
+5. **Backup**: Export wallet file for safekeeping
+
+### Screenshots
+
+The GUI wallet features:
+- **Overview Tab**: View total balance and all addresses
+- **Send Tab**: Send transactions with memo support
+- **Receive Tab**: Generate new addresses
+- **History Tab**: View all transactions
+- **Settings Tab**: Manage wallet and view recovery phrase
 
 ## Getting Started
 
