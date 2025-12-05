@@ -94,7 +94,7 @@ func (p *StratumPool) Start() error {
 	p.running = true
 
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	fmt.Printf("⛏️  Stratum Mining Pool Started\n")
+	fmt.Printf("[MINING] Stratum Mining Pool Started\n")
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 	fmt.Printf("  Listen Address: stratum+tcp://%s\n", p.listenAddr)
 	fmt.Printf("  Pool Address:   %s\n", p.poolAddress)
@@ -156,14 +156,14 @@ func (p *StratumPool) handleClient(conn net.Conn) {
 	p.clients[clientID] = client
 	p.clientsMutex.Unlock()
 
-	fmt.Printf("⛏️  New miner connected: %s\n", clientID)
+	fmt.Printf("[MINING] New miner connected: %s\n", clientID)
 
 	defer func() {
 		p.clientsMutex.Lock()
 		delete(p.clients, clientID)
 		p.clientsMutex.Unlock()
 		conn.Close()
-		fmt.Printf("⛏️  Miner disconnected: %s (shares: %d)\n", clientID, client.shares)
+		fmt.Printf("[MINING] Miner disconnected: %s (shares: %d)\n", clientID, client.shares)
 	}()
 
 	scanner := bufio.NewScanner(conn)
@@ -234,7 +234,7 @@ func (p *StratumPool) handleAuthorize(client *PoolClient, req *StratumRequest) e
 	}
 
 	client.authorized = true
-	fmt.Printf("⛏️  Miner authorized: %s (user: %s)\n", client.id, username)
+	fmt.Printf("[MINING] Miner authorized: %s (user: %s)\n", client.id, username)
 
 	return p.sendResponse(client, req.ID, true, nil)
 }
@@ -252,7 +252,7 @@ func (p *StratumPool) handleSubmit(client *PoolClient, req *StratumRequest) erro
 	client.shares++
 	client.lastShare = time.Now()
 
-	fmt.Printf("⛏️  Share submitted by %s (total: %d)\n", client.id, client.shares)
+	fmt.Printf("[MINING] Share submitted by %s (total: %d)\n", client.id, client.shares)
 
 	// TODO: Validate share and submit block if valid
 
@@ -381,7 +381,7 @@ func (p *StratumPool) generateNewJob() error {
 	}
 	p.clientsMutex.RUnlock()
 
-	fmt.Printf("⛏️  New job generated: %s (height: %d, miners: %d)\n", jobID, currentHeight, clientCount)
+	fmt.Printf("[MINING] New job generated: %s (height: %d, miners: %d)\n", jobID, currentHeight, clientCount)
 
 	return nil
 }

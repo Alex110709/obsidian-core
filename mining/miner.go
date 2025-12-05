@@ -78,7 +78,7 @@ func (m *CPUMiner) Start() {
 
 	// Check if we need to mine genesis block
 	if m.chain.Height() == 0 {
-		fmt.Println("⛏️  No blocks found - mining genesis block for fair launch!")
+		fmt.Println("[MINING] No blocks found - mining genesis block for fair launch!")
 		m.mineGenesisBlock()
 	}
 
@@ -151,9 +151,9 @@ func (m *CPUMiner) Start() {
 		if found {
 			newBlock.Header.Nonce = nonce
 			newBlock.Header.DarkMatterSolution = solution
-			fmt.Printf("✓ Found nonce: %d\n", nonce)
+			fmt.Printf("[OK] Found nonce: %d\n", nonce)
 		} else {
-			fmt.Printf("✗ Mining failed after %d attempts, skipping block\n", maxAttempts)
+			fmt.Printf("[ERROR] Mining failed after %d attempts, skipping block\n", maxAttempts)
 			time.Sleep(5 * time.Second)
 			continue // Skip this block attempt
 		}
@@ -161,14 +161,14 @@ func (m *CPUMiner) Start() {
 		// 4. Add block to blockchain
 		err = m.chain.ProcessBlock(newBlock, m.pow)
 		if err != nil {
-			fmt.Printf("✗ Failed to process block: %v\n", err)
+			fmt.Printf("[ERROR] Failed to process block: %v\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
 		// Print success message
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println("⛏️  NEW BLOCK MINED!")
+		fmt.Println("[MINING] NEW BLOCK MINED!")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Printf("  Height:       %d\n", currentHeight)
 		fmt.Printf("  Hash:         %x\n", newBlock.BlockHash())
@@ -185,9 +185,9 @@ func (m *CPUMiner) Start() {
 		if m.syncManager != nil {
 			m.syncManager.BroadcastBlock(newBlock)
 			peerCount := m.syncManager.GetPeerCount()
-			fmt.Printf("📡 Block broadcast to %d peer(s)\n", peerCount)
+			fmt.Printf("[BROADCAST] Block broadcast to %d peer(s)\n", peerCount)
 		} else {
-			fmt.Println("📡 No peers connected (mining solo)")
+			fmt.Println("[BROADCAST] No peers connected (mining solo)")
 		}
 
 		// Wait before next block (target: 5 minutes, but faster for demo)
@@ -198,7 +198,7 @@ func (m *CPUMiner) Start() {
 // mineGenesisBlock mines the genesis block for fair launch
 func (m *CPUMiner) mineGenesisBlock() {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("🚀 FAIR LAUNCH - Mining Genesis Block")
+	fmt.Println("[LAUNCH] FAIR LAUNCH - Mining Genesis Block")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("  Network:        Obsidian Mainnet")
 	fmt.Println("  Max Supply:     100,000,000 OBS")
@@ -216,7 +216,7 @@ func (m *CPUMiner) mineGenesisBlock() {
 	genesis.Transactions[0].TxOut[0].PkScript = []byte(m.minerAddr)
 
 	// Mine genesis block
-	fmt.Println("\n⛏️  Mining genesis block...")
+	fmt.Println("\n[MINING] Mining genesis block...")
 	startTime := time.Now()
 
 	maxAttempts := uint32(10000000) // 10 million attempts
@@ -226,7 +226,7 @@ func (m *CPUMiner) mineGenesisBlock() {
 	m.UpdateHashCount(uint64(maxAttempts))
 
 	if !found {
-		fmt.Printf("✗ Genesis mining failed after %d attempts\n", maxAttempts)
+		fmt.Printf("[ERROR] Genesis mining failed after %d attempts\n", maxAttempts)
 		fmt.Println("💡 Tip: Genesis difficulty may be too high. Adjust PowLimitBits in params.go")
 		return
 	}
@@ -237,7 +237,7 @@ func (m *CPUMiner) mineGenesisBlock() {
 	elapsed := time.Since(startTime)
 	genesisHash := genesis.BlockHash()
 
-	fmt.Printf("✅ Genesis block mined!\n")
+	fmt.Printf("[SUCCESS] Genesis block mined!\n")
 	fmt.Printf("   Hash:     %s\n", genesisHash.String())
 	fmt.Printf("   Nonce:    %d\n", nonce)
 	fmt.Printf("   Time:     %v\n", elapsed)
@@ -247,13 +247,13 @@ func (m *CPUMiner) mineGenesisBlock() {
 	// Save genesis block to blockchain
 	err := m.chain.ProcessBlock(genesis, m.pow)
 	if err != nil {
-		fmt.Printf("✗ Failed to process genesis block: %v\n", err)
+		fmt.Printf("[ERROR] Failed to process genesis block: %v\n", err)
 		return
 	}
 
-	fmt.Println("\n🎉 Genesis block accepted into blockchain!")
+	fmt.Println("\n[SUCCESS] Genesis block accepted into blockchain!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("✅ FAIR LAUNCH SUCCESSFUL")
+	fmt.Println("[SUCCESS] FAIR LAUNCH SUCCESSFUL")
 	fmt.Println("   All 100 million OBS will be distributed to miners")
 	fmt.Println("   No premine, no founder allocation")
 	fmt.Println("   Pure Proof-of-Work distribution")
@@ -262,6 +262,6 @@ func (m *CPUMiner) mineGenesisBlock() {
 	// Broadcast genesis block to peers if sync manager is available
 	if m.syncManager != nil {
 		m.syncManager.BroadcastBlock(genesis)
-		fmt.Println("📡 Genesis block broadcast to peers")
+		fmt.Println("[BROADCAST] Genesis block broadcast to peers")
 	}
 }

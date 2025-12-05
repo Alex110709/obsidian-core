@@ -511,7 +511,7 @@ func (sm *SyncManager) peerMaintenanceLoop() {
 		for addr, bannedUntil := range sm.bannedPeers {
 			if now.After(bannedUntil) {
 				delete(sm.bannedPeers, addr)
-				fmt.Printf("✅ Unbanned peer: %s\n", addr)
+				fmt.Printf("[SUCCESS] Unbanned peer: %s\n", addr)
 				// Allow reconnection attempt after unbanning
 				go sm.scheduleReconnection(addr, 1)
 			}
@@ -629,7 +629,7 @@ func (sm *SyncManager) StartListener(addr string) error {
 		sm.mu.Unlock()
 
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println("🔗 NEW INBOUND PEER CONNECTED")
+		fmt.Println("[PEER] NEW INBOUND PEER CONNECTED")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Printf("  Address:   %s\n", conn.RemoteAddr().String())
 		fmt.Printf("  Direction: Inbound\n")
@@ -679,7 +679,7 @@ func (sm *SyncManager) connectAndSync(addr string) {
 	sm.mu.Unlock()
 
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("🔗 NEW PEER CONNECTED")
+	fmt.Println("[PEER] NEW PEER CONNECTED")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("  Address:   %s\n", addr)
 	fmt.Printf("  Direction: Outbound\n")
@@ -1239,7 +1239,7 @@ func (sm *SyncManager) handleBlock(peer *Peer, msg *P2PMessage) error {
 	sm.announceBlock(block, peer.addr)
 	peerCount := len(sm.peers) - 1 // Exclude source peer
 	if peerCount > 0 {
-		fmt.Printf("📡 Block relayed to %d other peer(s)\n", peerCount)
+		fmt.Printf("[BROADCAST] Block relayed to %d other peer(s)\n", peerCount)
 	}
 
 	return nil
