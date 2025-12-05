@@ -842,17 +842,26 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 
 	// Send verack
 	go func() {
-		sendErrCh <- peer.SendMessage(MsgTypeVerAck, nil)
+		logrus.Debugf("Sending verack to %s", peer.addr)
+		err := peer.SendMessage(MsgTypeVerAck, nil)
+		if err != nil {
+			logrus.Debugf("Failed to send verack to %s: %v", peer.addr, err)
+		}
+		sendErrCh <- err
 	}()
 
 	// Receive verack
 	go func() {
+		logrus.Debugf("Waiting for verack from %s", peer.addr)
 		msg, err := peer.ReceiveMessageWithTimeout(handshakeTimeout)
 		if err != nil {
 			peer.AdjustScore(ScoreTimeout)
+			logrus.Debugf("Failed to receive verack from %s: %v", peer.addr, err)
 			recvErrCh <- fmt.Errorf("failed to receive verack: %v", err)
 			return
 		}
+
+		logrus.Debugf("Received message type %s from %s (expecting verack)", msg.Type, peer.addr)
 
 		if msg.Type != MsgTypeVerAck {
 			peer.AdjustScore(ScoreProtocolViolation)
@@ -860,6 +869,7 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 			return
 		}
 
+		logrus.Debugf("Verack received from %s", peer.addr)
 		recvErrCh <- nil
 	}()
 
@@ -880,15 +890,8 @@ func (sm *SyncManager) performHandshake(peer *Peer) error {
 		}
 	}
 
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("🤝 HANDSHAKE COMPLETE")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("  Peer:       %s\n", peer.addr)
-	fmt.Printf("  Direction:  %s\n", map[bool]string{true: "Inbound", false: "Outbound"}[peer.inbound])
-	fmt.Printf("  Version:    %d\n", peerVersion.Version)
-	fmt.Printf("  Height:     %d\n", peerVersion.Height)
-	fmt.Printf("  User Agent: %s\n", peerVersion.UserAgent)
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	logrus.Infof("Handshake complete with %s (version: %d, height: %d, agent: %s)",
+		peer.addr, peerVersion.Version, peerVersion.Height, peerVersion.UserAgent)
 	return nil
 }
 
