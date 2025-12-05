@@ -225,19 +225,149 @@ go run cmd/obsidiand/main.go
 
 This will start the node, initialize the blockchain with the Genesis block, and start a CPU miner simulation.
 
-### Environment Variables
+## Environment Variables
+
+Obsidian Core can be configured using environment variables. Below is a complete list of all available variables:
+
+### Network Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NETWORK` | `mainnet` | Network type (mainnet, testnet, regtest) |
+| `P2P_ADDR` | `0.0.0.0:8333` | P2P server listen address |
+| `RPC_ADDR` | `0.0.0.0:8545` | RPC server listen address |
+| `SEED_NODES` | - | Comma-separated list of seed nodes (e.g., `node1:8333,node2:8333`) |
+
+### Peer Management
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAX_PEERS` | `125` | Maximum number of peer connections |
+| `MIN_PEERS` | `8` | Minimum number of peer connections to maintain |
+| `CONNECT_TIMEOUT` | `30s` | Timeout for establishing peer connections |
+| `MESSAGE_TIMEOUT` | `300s` | Timeout for receiving peer messages (5 minutes) |
+| `MAX_MESSAGE_SIZE` | `10485760` | Maximum P2P message size in bytes (10MB) |
+| `BAN_DURATION` | `24h` | Duration to ban misbehaving peers |
+
+### Mining Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SOLO_MINING` | `true` | Enable/disable solo mining |
+| `MINER_ADDRESS` | `ObsidianDefaultMinerAddress123456789` | Address to receive mining rewards |
+| `POOL_SERVER` | `false` | Enable/disable Stratum pool server |
+| `POOL_ADDR` | `0.0.0.0:3333` | Pool server listen address |
+| `POOL_LISTEN` | `0.0.0.0:3333` | Pool server listen address (alternative) |
+
+### Logging
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `info` | Logging level (debug, info, warn, error) |
+| `LOG_FILE` | - | Path to log file (empty = stdout only) |
+
+### Storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATA_DIR` | `.` | Directory for blockchain data storage |
+
+### Privacy & Tor
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TOR_ENABLED` | `false` | Enable/disable Tor networking |
+| `TOR_PROXY_ADDR` | `127.0.0.1:9050` | Tor SOCKS5 proxy address |
+
+### Go Runtime (Performance Tuning)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GOGC` | `100` | Go garbage collection target percentage (lower = more aggressive GC) |
+| `GOMAXPROCS` | CPU cores | Maximum number of OS threads for Go runtime |
+
+### Example Configurations
+
+#### Solo Mining Node
 ```bash
-# Mining configuration
-SOLO_MINING=true MINER_ADDRESS=YourAddress ./obsidiand
+SOLO_MINING=true \
+MINER_ADDRESS=YourObsidianAddress \
+LOG_LEVEL=info \
+./obsidiand
+```
 
-# Pool server
-POOL_SERVER=true POOL_LISTEN=0.0.0.0:3333 ./obsidiand
+#### Mining Pool Server
+```bash
+POOL_SERVER=true \
+POOL_LISTEN=0.0.0.0:3333 \
+MINER_ADDRESS=PoolOwnerAddress \
+SOLO_MINING=false \
+./obsidiand
+```
 
-# Tor networking
-TOR_ENABLED=true ./obsidiand
+#### Tor-Enabled Privacy Node
+```bash
+TOR_ENABLED=true \
+TOR_PROXY_ADDR=127.0.0.1:9050 \
+LOG_LEVEL=debug \
+./obsidiand
+```
 
-# Custom data directory
-DATA_DIR=./my-data ./obsidiand
+#### Seed Node
+```bash
+P2P_ADDR=0.0.0.0:8333 \
+MAX_PEERS=500 \
+SOLO_MINING=false \
+DATA_DIR=/var/lib/obsidian \
+LOG_FILE=/var/log/obsidian/node.log \
+./obsidiand
+```
+
+#### Full Node with Custom Configuration
+```bash
+NETWORK=mainnet \
+P2P_ADDR=0.0.0.0:8333 \
+RPC_ADDR=127.0.0.1:8545 \
+SEED_NODES=seed1.obsidian.network:8333,seed2.obsidian.network:8333 \
+MAX_PEERS=125 \
+MIN_PEERS=8 \
+SOLO_MINING=true \
+MINER_ADDRESS=obs5pPyd6DA6tYyYwip4hYcBWWFTNf4wj8nn \
+DATA_DIR=/home/obsidian/data \
+LOG_LEVEL=info \
+LOG_FILE=/home/obsidian/logs/obsidian.log \
+./obsidiand
+```
+
+#### Docker Environment File (.env)
+```bash
+# Network
+NETWORK=mainnet
+P2P_ADDR=0.0.0.0:8333
+RPC_ADDR=0.0.0.0:8545
+
+# Peers
+MAX_PEERS=125
+MIN_PEERS=8
+SEED_NODES=seed1:8333,seed2:8333
+
+# Mining
+SOLO_MINING=true
+MINER_ADDRESS=your_address_here
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=/home/obsidian/logs/obsidian.log
+
+# Storage
+DATA_DIR=/home/obsidian/data
+
+# Privacy
+TOR_ENABLED=false
+
+# Performance
+GOGC=50
+GOMAXPROCS=4
 ```
 
 ## Documentation
@@ -289,28 +419,24 @@ This project is open source and available under the MIT License.
 
 ### Configuration
 
-Create a `.env` file or set environment variables:
+See the [Environment Variables](#environment-variables) section above for a complete list of all configuration options.
+
+Quick configuration example:
 
 ```bash
-# Network
+# Create .env file
+cat > .env << EOF
 NETWORK=mainnet
 P2P_ADDR=0.0.0.0:8333
 RPC_ADDR=0.0.0.0:8545
-
-# Logging
 LOG_LEVEL=info
 LOG_FILE=/var/log/obsidian/obsidian.log
-
-# Mining
 SOLO_MINING=true
 MINER_ADDRESS=your_address_here
-
-# Security
 MAX_PEERS=125
 BAN_DURATION=24h
-
-# Data
 DATA_DIR=/var/lib/obsidian
+EOF
 ```
 
 ### Security Best Practices

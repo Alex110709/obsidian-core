@@ -63,12 +63,6 @@ func main() {
 	params := chaincfg.MainNetParams
 	params.TorEnabled = cfg.TorEnabled
 
-	fmt.Printf("Network: %s\n", params.Name)
-	fmt.Printf("Block Size Limit: %d bytes\n", params.BlockMaxSize)
-	fmt.Printf("Target Block Time: %v\n", params.TargetTimePerBlock)
-	fmt.Printf("Max Supply: %d\n", params.MaxMoney)
-	fmt.Printf("Initial Supply: %d\n", params.InitialSupply)
-
 	// Initialize Tor
 	torConfig := tor.Config{
 		Enabled:   params.TorEnabled,
@@ -79,15 +73,15 @@ func main() {
 		if params.TorEnabled {
 			logrus.Fatalf("Failed to initialize Tor (required): %v", err)
 		}
-		fmt.Printf("Warning: Tor not available: %v\n", err)
+		logrus.Warnf("Tor not available: %v", err)
 		// Create disabled Tor client
 		torClient, _ = tor.NewClient(tor.Config{Enabled: false})
 	}
+
+	torStatus := "disabled"
 	if torClient.IsEnabled() {
-		fmt.Printf("Tor enabled via proxy: %s\n", torClient.GetProxyAddr())
+		torStatus = fmt.Sprintf("enabled (%s)", torClient.GetProxyAddr())
 		defer torClient.Stop() // Stop Tor on shutdown
-	} else {
-		fmt.Println("Tor disabled - using direct connections")
 	}
 
 	// Initialize P2P Network Manager
@@ -96,7 +90,7 @@ func main() {
 	// Add seed nodes from environment
 	seedNodesEnv := os.Getenv("SEED_NODES")
 	if seedNodesEnv != "" {
-		fmt.Printf("Seed nodes configured: %s\n", seedNodesEnv)
+		logrus.Debugf("Seed nodes: %s", seedNodesEnv)
 		// Parse comma-separated seed nodes
 		var seedNodes []string
 		for _, seed := range strings.Split(seedNodesEnv, ",") {
@@ -112,7 +106,11 @@ func main() {
 
 	// Initialize PoW
 	pow := consensus.NewDarkMatter()
-	fmt.Println("PoW Engine: DarkMatter (AES-SHA256 Hybrid)")
+
+	// Single startup info line
+	fmt.Printf("Obsidian Node [%s] | DarkMatter PoW | Tor: %s | Block: %.0fs/%dMB | Supply: %d/%d\n",
+		params.Name, torStatus, params.TargetTimePerBlock.Seconds(),
+		params.BlockMaxSize/(1024*1024), params.InitialSupply, params.MaxMoney)
 
 	// Initialize Blockchain
 	chain, err := blockchain.NewBlockchain(&params, pow)
@@ -120,14 +118,12 @@ func main() {
 		logrus.Fatalf("Failed to initialize blockchain: %v", err)
 	}
 	defer chain.Close()
-	fmt.Printf("Blockchain initialized. Height: %d\n", chain.Height())
+	logrus.Debugf("Blockchain height: %d", chain.Height())
 
 	// Initialize P2P Sync Manager
 	syncManager := network.NewSyncManager(chain, peerManager, pow)
 	if err := syncManager.Start(); err != nil {
-		logrus.Printf("Failed to start sync manager: %v", err)
-	} else {
-		fmt.Printf("P2P sync started. Connected peers: %d\n", syncManager.GetPeerCount())
+		logrus.Errorf("Failed to start sync manager: %v", err)
 	}
 
 	// Start P2P server listener for inbound connections
@@ -137,10 +133,10 @@ func main() {
 	}
 	go func() {
 		if err := syncManager.StartListener(p2pAddr); err != nil {
-			logrus.Printf("Failed to start P2P listener: %v", err)
+			logrus.Errorf("Failed to start P2P listener: %v", err)
 		}
 	}()
-	fmt.Printf("P2P server listening on %s\n", p2pAddr)
+	logrus.Infof("P2P listening on %s (peers: %d)", p2pAddr, syncManager.GetPeerCount())
 
 	// Initialize mining configuration
 	minerAddr := os.Getenv("MINER_ADDRESS")
@@ -155,26 +151,14 @@ func main() {
 		poolListenAddr = "0.0.0.0:3333" // Default Stratum port
 	}
 
-	fmt.Println("Mining Configuration")
-	fmt.Printf("  Miner Address:  %s\n", minerAddr)
-	fmt.Printf("  Block Reward:   %d OBS (halves every %s blocks)\n",
-		params.BaseBlockReward, formatNumber(params.HalvingInterval))
-	fmt.Printf("  Solo Mining:    %v\n", enableSoloMining)
-	fmt.Printf("  Pool Server:    %v\n", enablePoolServer)
-	if enablePoolServer {
-		fmt.Printf("  Pool Listen:    stratum+tcp://%s\n", poolListenAddr)
-	}
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
 	// Start Solo Miner if enabled
 	var miner *mining.CPUMiner
+	miningStatus := "disabled"
 	if enableSoloMining {
 		miner = mining.NewCPUMiner(chain, &params, pow, minerAddr)
 		miner.SetSyncManager(syncManager)
 		go miner.Start()
-		fmt.Println("✓ Solo mining started")
-	} else {
-		fmt.Println("✗ Solo mining disabled")
+		miningStatus = "solo"
 	}
 
 	// Start Pool Server if enabled
@@ -182,11 +166,19 @@ func main() {
 	if enablePoolServer {
 		poolServer = stratum.NewStratumPool(chain, &params, pow, minerAddr, poolListenAddr)
 		if err := poolServer.Start(); err != nil {
-			logrus.Printf("Failed to start pool server: %v", err)
+			logrus.Errorf("Failed to start pool server: %v", err)
 		} else {
-			fmt.Println("✓ Pool server started")
+			if miningStatus == "solo" {
+				miningStatus = "solo+pool"
+			} else {
+				miningStatus = "pool"
+			}
+			logrus.Infof("Pool server on %s", poolListenAddr)
 		}
 	}
+
+	logrus.Infof("Mining: %s | Reward: %d OBS (halves every %s blocks)",
+		miningStatus, params.BaseBlockReward, formatNumber(params.HalvingInterval))
 
 	// Initialize and Start RPC Server
 	rpcServer := rpcserver.NewServer(chain, miner, syncManager, cfg.RPCAddr)
