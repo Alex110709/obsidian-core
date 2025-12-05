@@ -31,26 +31,34 @@ type BlockChain struct {
 
 // TokenStore manages token operations
 type TokenStore struct {
-	tokens map[wire.Hash]*Token
+	tokens   map[wire.Hash]*Token
+	balances map[string]map[wire.Hash]int64 // address -> tokenID -> balance
 }
 
 // NewTokenStore creates a new token store
 func NewTokenStore() *TokenStore {
 	return &TokenStore{
-		tokens: make(map[wire.Hash]*Token),
+		tokens:   make(map[wire.Hash]*Token),
+		balances: make(map[string]map[wire.Hash]int64),
 	}
 }
 
 // Token represents a token
 type Token struct {
-	ID       wire.Hash
-	Symbol   string
-	Name     string
-	Decimals int
-	Supply   int64
-	Owner    string
-	Mintable bool
-	Created  int64
+	ID          wire.Hash
+	Symbol      string
+	Name        string
+	Decimals    int
+	Supply      int64
+	TotalSupply int64
+	Owner       string
+	Mintable    bool
+	Created     int64
+}
+
+// TokenBalance tracks token balances for addresses
+type TokenBalance struct {
+	balances map[string]map[wire.Hash]int64 // address -> tokenID -> balance
 }
 
 // GetToken retrieves a token by ID
@@ -93,10 +101,12 @@ func (ts *TokenStore) ListTokens() []*Token {
 	return tokens
 }
 
-// GetAddressTokens returns tokens held by an address
-func (ts *TokenStore) GetAddressTokens(address string) []*Token {
-	// Simplified: return all tokens for now
-	return ts.ListTokens()
+// GetAddressTokens returns tokens held by an address with balances
+func (ts *TokenStore) GetAddressTokens(address string) map[wire.Hash]int64 {
+	if addressBalances, ok := ts.balances[address]; ok {
+		return addressBalances
+	}
+	return make(map[wire.Hash]int64)
 }
 
 // NewBlockchain returns a BlockChain instance using the provided configuration

@@ -373,6 +373,10 @@ type SyncManager struct {
 	outboundCount  int
 	inboundCount   int
 	mu             sync.RWMutex
+
+	// Control
+	stopChan chan struct{}
+	running  bool
 }
 
 // NewSyncManager creates a new sync manager.
@@ -385,12 +389,34 @@ func NewSyncManager(bc *blockchain.BlockChain, pm *PeerManager, pow consensus.Po
 		bannedPeers: make(map[string]time.Time),
 		knownBlocks: make(map[wire.Hash]bool),
 		knownTxs:    make(map[wire.Hash]bool),
+		stopChan:    make(chan struct{}),
+		running:     false,
 	}
 
 	// Start background tasks
 	go sm.peerMaintenanceLoop()
 
 	return sm
+}
+
+// Stop stops the sync manager
+func (sm *SyncManager) Stop() {
+	if sm.running {
+		close(sm.stopChan)
+		sm.running = false
+
+		// Disconnect all peers
+		sm.mu.Lock()
+		for addr, peer := range sm.peers {
+			if peer.conn != nil {
+				peer.conn.Close()
+			}
+			delete(sm.peers, addr)
+		}
+		sm.mu.Unlock()
+
+		fmt.Println("Sync manager stopped")
+	}
 }
 
 // ConnectToPeer manually connects to a peer.
@@ -550,6 +576,8 @@ func (sm *SyncManager) canAcceptPeer(addr string, inbound bool) bool {
 
 // Start begins the sync manager's operation.
 func (sm *SyncManager) Start() error {
+	sm.running = true
+
 	// Discover peers
 	peerAddrs := sm.peerManager.DiscoverPeers()
 	if len(peerAddrs) == 0 {

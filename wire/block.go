@@ -35,6 +35,10 @@ type BlockHeader struct {
 	// DarkMatter solution bytes (Obsidian specific)
 	// Contains the nonce and other proof data for the AES-SHA256 hybrid PoW.
 	DarkMatterSolution []byte
+
+	// Gas fields (Ethereum-style)
+	GasLimit uint64 // Maximum gas allowed in this block
+	GasUsed  uint64 // Total gas used by all transactions in this block
 }
 
 // MsgBlock implements the Message interface and represents a bitcoin

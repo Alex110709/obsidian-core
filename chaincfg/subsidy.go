@@ -4,14 +4,16 @@ import "obsidian-core/wire"
 
 // CalcBlockSubsidy calculates the block reward based on block height.
 // The reward halves every HalvingInterval blocks until it reaches MinimumBlockReward.
+// Additionally adds redistribution of burned coins.
 // Returns reward in satoshis (1 OBS = 100,000,000 satoshis).
 func (p *Params) CalcBlockSubsidy(height int32) int64 {
 	// Calculate number of halvings
 	halvings := height / p.HalvingInterval
 
-	// Reward becomes zero after 64 halvings (extremely far in future)
+	// Reward becomes minimum after 64 halvings
 	if halvings >= 64 {
-		return p.MinimumBlockReward * 100000000
+		subsidy := p.MinimumBlockReward * 100000000
+		return subsidy + p.CalcBurnRedistribution()
 	}
 
 	// Start with base reward
@@ -25,7 +27,51 @@ func (p *Params) CalcBlockSubsidy(height int32) int64 {
 		subsidy = p.MinimumBlockReward
 	}
 
-	return subsidy * 100000000 // Convert OBS to satoshis
+	baseReward := subsidy * 100000000 // Convert OBS to satoshis
+
+	// Add burned coin redistribution
+	burnRedistribution := p.CalcBurnRedistribution()
+
+	return baseReward + burnRedistribution
+}
+
+// CalcBurnRedistribution calculates how much burned OBS to redistribute in this block.
+// Uses BurnRate (in basis points) to determine redistribution amount.
+// For example: if 1M OBS burned and BurnRate is 10 (0.1%), redistribute 1,000 satoshis per block.
+func (p *Params) CalcBurnRedistribution() int64 {
+	if p.TotalBurned == 0 || p.BurnRate == 0 {
+		return 0
+	}
+
+	// Calculate redistribution: (TotalBurned * BurnRate) / 10000
+	// BurnRate is in basis points (1 basis point = 0.01%)
+	redistribution := (p.TotalBurned * p.BurnRate) / 10000
+
+	// Ensure we don't redistribute more than what's burned
+	if redistribution < 0 {
+		return 0
+	}
+
+	return redistribution
+}
+
+// AddBurn adds burned amount to the total burned counter.
+// This increases the pool of coins available for redistribution.
+func (p *Params) AddBurn(amount int64) {
+	if amount > 0 {
+		p.TotalBurned += amount
+	}
+}
+
+// GetTotalBurned returns the total amount of OBS burned (in satoshis).
+func (p *Params) GetTotalBurned() int64 {
+	return p.TotalBurned
+}
+
+// GetCirculatingSupply returns the circulating supply (minted - burned).
+func (p *Params) GetCirculatingSupply(height int32) int64 {
+	totalMinted := p.TotalSupplyAtHeight(height)
+	return totalMinted - p.TotalBurned
 }
 
 // TotalSupplyAtHeight calculates the total supply at a given height.

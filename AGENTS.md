@@ -67,5 +67,84 @@ import (
 - Test files end with `_test.go`
 - Test functions start with `Test` followed by PascalCase name
 - Use table-driven tests for multiple test cases
-- Test both success and error paths</content>
+- Test both success and error paths
+
+## Smart Contract Development
+
+### OCL Language (Obsidian Contract Language)
+- Python-like syntax for smart contracts
+- Indentation-based block structure
+- Supported constructs: functions, if/elif/else, assignments, expressions
+- Built-in functions: self.balance, self.storage, send(), etc.
+
+### Example Contract
+```ocl
+contract MyContract:
+    def __init__(self):
+        self.owner = msg.sender
+        self.balance = 0
+
+    def deposit(self, amount):
+        if amount > 0:
+            self.balance += amount
+
+    def withdraw(self, amount):
+        if self.balance >= amount:
+            self.balance -= amount
+            send(msg.sender, amount)
+```
+
+### Smart Contract Commands
+- **Compile contract**: Use smartcontract package to compile OCL to bytecode
+- **Deploy contract**: `deploycontract <contract_code>` RPC method
+- **Call contract**: `callcontract <address> <function> [args...]` RPC method
+
+## Address Formats
+
+### Transparent Addresses
+- **Prefix**: `obs`
+- **Format**: obs + base58 encoded hash
+- **Example**: obs5pPyd6DA6tYyYwip4hYcBWWFTNf4wj8nn
+
+### Shielded Addresses
+- **Prefix**: `zobs`
+- **Format**: zobs + base58 encoded shielded data
+- **Example**: zobs + encrypted note data
+
+## Privacy Features
+
+### Shield/Unshield Transactions
+- **Shield**: Convert transparent funds to shielded: `shield <from> <to> <amount>`
+- **Unshield**: Convert shielded funds to transparent: `unshield <from> <to> <amount>`
+- Uses zk-SNARK proofs for privacy
+
+## RPC Methods
+
+### New Methods Added
+- `deploycontract`: Deploy smart contract
+- `callcontract`: Call smart contract function
+- `shield`: Shield funds to private address
+- `unshield`: Unshield funds to public address
+- `z_sendmany`: Send to multiple shielded addresses
+- `z_getnewaddress`: Generate new shielded address
+- `z_getbalance`: Get shielded balance
+- `z_listaddresses`: List shielded addresses
+
+### Usage Examples
+```bash
+# Deploy contract
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"deploycontract","params":["contract MyContract:\n    def hello(self):\n        return \"Hello World\""],"id":1}' \
+  http://localhost:8545
+
+# Call contract
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"callcontract","params":["obs123...","hello"],"id":2}' \
+  http://localhost:8545
+
+# Shield funds
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"shield","params":["obs123...","zobs456...",1000],"id":3}' \
+  http://localhost:8545
+```</content>
 <parameter name="filePath">/Users/yuchan/Desktop/Obsidian Chain/obsidian-core/AGENTS.md

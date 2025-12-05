@@ -1,0 +1,18 @@
+{
+  "mnemonic": "under tower improve immense moon monitor unfair office divide advice toast museum visual harsh extra viable sense attack drift major reject supreme sense oval",
+  "transparent_keys": [
+    {
+      "private_key": "71de177c314ec39541a300cc0785e25262b8d105ad397451b375e38b9f875017",
+      "public_key": "03417978dfbc17b9fb6c7a8bd2fa3a1f9c06a6b8721674bb6f0ea0a025138a04f0",
+      "address": "Obs8Uz3Bz9gfPYGZie6DGwBQUoH1a9M4XNEh"
+    }
+  ],
+  "shielded_keys": [
+    {
+      "public_key": "d09f6e66523326e4c59c6795f352c11a5141e4c7eb370baac2c30449e90ab78b",
+      "viewing_key": "8a0d3afe7c88435f4134bc1298ce8c798bee504a27f5dc3fb82ad76ed0348613",
+      "address": "2opLSCdR3CSNppTLtzMd95nze2nMfhKV5EiBx8VtZLmPu3czfbXP8UMRpVKzJG7N1RnY3iUdcVLmTAdiWyTKHofftibCCnwzyCv"
+    }
+  ],
+  "transaction_history": []
+}

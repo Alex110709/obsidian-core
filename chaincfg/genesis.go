@@ -13,6 +13,8 @@ var GenesisBlock = wire.MsgBlock{
 		Timestamp: time.Date(2025, 11, 23, 0, 0, 0, 0, time.UTC), // Fair launch date
 		Bits:      0x2000ffff,                                    // Initial difficulty
 		Nonce:     0,                                             // Must be mined!
+		GasLimit:  30000000,                                      // Initial gas limit: 30M
+		GasUsed:   21000,                                         // Genesis coinbase tx uses base gas
 	},
 	Transactions: []*wire.MsgTx{GenesisCoinbaseTx},
 }
@@ -41,13 +43,17 @@ var GenesisCoinbaseTx = &wire.MsgTx{
 	},
 	TxOut: []*wire.TxOut{
 		{
-			// Genesis block reward: 100 OBS (same as all other blocks)
+			// Genesis block reward: 25 OBS (adjusted for 20 second blocks + yearly halving)
 			// NO special allocation - miner gets same reward as any other block!
-			Value:    10000000000, // 100 OBS (100M satoshis)
-			PkScript: []byte{},    // Will be set by miner who finds genesis block
+			Value:    2500000000, // 25 OBS (2.5B satoshis)
+			PkScript: []byte{},   // Will be set by miner who finds genesis block
 		},
 	},
 	LockTime: 0,
+	// Gas fields for genesis coinbase
+	GasLimit: 21000, // Base transaction gas
+	GasPrice: 1000,  // Min gas price
+	GasUsed:  21000, // Coinbase uses base gas
 }
 
 func init() {

@@ -1,0 +1,18 @@
+{
+  "mnemonic": "asset group destroy usual purity clog bone chronic frequent omit inner police allow vacuum mention road volcano trade stool face endorse ahead wire pudding",
+  "transparent_keys": [
+    {
+      "private_key": "8b73f58c16689e91ff2a54519763fccbf741d3e2bf82a36fe08d33ea326e5088",
+      "public_key": "02f56d181ced05b7cb034d1725d4b73a7788d25651ddb778b9b7e28d4a70255df8",
+      "address": "Obs5AaMK1wATxMu5mzRDcUY3t7ArhgcGoRUD"
+    }
+  ],
+  "shielded_keys": [
+    {
+      "public_key": "fbaeec7370c1e975f3812e401dcfbbfc94eb1558ee3b1c006ab6e1bbc0626c66",
+      "viewing_key": "728516c66a3a53ed51740f7340eb4e7b36979522b6b48912e9ffff4b12e61392",
+      "address": "2opLSCj3nS1u835s6mizDjHVjEN1cN6mPeTmTvMqf3iK5QqfkoHLDcLTtZAAGUfyXZ4QNCqYuoMragr37qJEz1p7ob2RPdjE9f5"
+    }
+  ],
+  "transaction_history": []
+}

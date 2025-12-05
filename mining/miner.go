@@ -26,6 +26,10 @@ type CPUMiner struct {
 	hashCount    uint64
 	startTime    time.Time
 	lastHashRate float64
+
+	// Control
+	stopChan chan struct{}
+	running  bool
 }
 
 func NewCPUMiner(chain *blockchain.BlockChain, params *chaincfg.Params, pow consensus.PowEngine, minerAddr string) *CPUMiner {
@@ -35,6 +39,8 @@ func NewCPUMiner(chain *blockchain.BlockChain, params *chaincfg.Params, pow cons
 		pow:       pow,
 		minerAddr: minerAddr,
 		startTime: time.Now(),
+		stopChan:  make(chan struct{}),
+		running:   false,
 	}
 }
 
@@ -57,8 +63,18 @@ func (m *CPUMiner) UpdateHashCount(count uint64) {
 	m.hashCount += count
 }
 
+// Stop stops the miner
+func (m *CPUMiner) Stop() {
+	if m.running {
+		close(m.stopChan)
+		m.running = false
+		fmt.Println("Miner stopped")
+	}
+}
+
 func (m *CPUMiner) Start() {
 	fmt.Println("Miner started. Mining on CPU...")
+	m.running = true
 
 	// Check if we need to mine genesis block
 	if m.chain.Height() == 0 {
@@ -67,6 +83,11 @@ func (m *CPUMiner) Start() {
 	}
 
 	for {
+		select {
+		case <-m.stopChan:
+			return
+		default:
+		}
 		// 1. Get Best Block
 		best, err := m.chain.BestBlock()
 		if err != nil {

@@ -1,41 +1,86 @@
+version: '3.8'
+
 services:
   obsidian-node:
-    image: yuchanshin/obsidian-node:v0.1.1
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yuchanshin/obsidian-node:latest
     container_name: obsidian-node
+    hostname: obsidian-node
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
+    
     environment:
+      # Logging Configuration
+      LOG_LEVEL: "info"
+      LOG_FILE: "/home/obsidian/logs/obsidian.log"
+      
       # Mining Configuration
-      SOLO_MINING: "true"          # Enable/disable solo mining (default: true)
-      POOL_SERVER: "false"         # Enable/disable pool server (default: false)
+      SOLO_MINING: "true"
+      POOL_SERVER: "false"
       MINER_ADDRESS: "ObsidianMinerDefaultAddress"
       
-      # Pool Server Configuration (only if POOL_SERVER=true)
-      # POOL_LISTEN: "0.0.0.0:3333"
-      
       # Network Configuration
-      # TOR_ENABLED: "true"
-      # SEED_NODES: "node1.example.com:8333,node2.example.com:8333"
-      
-      # RPC Configuration
+      NETWORK: "mainnet"
+      P2P_ADDR: "0.0.0.0:8333"
       RPC_ADDR: "0.0.0.0:8545"
+      MAX_PEERS: "125"
+      MIN_PEERS: "8"
+      
+      # Tor Configuration
+      TOR_ENABLED: "false"
+      TOR_PROXY_ADDR: "127.0.0.1:9050"
       
       # Data Directory
-      # DATA_DIR: "/root/data"
+      DATA_DIR: "/home/obsidian/data"
+      
+      # Security
+      BAN_DURATION: "24h"
+    
     ports:
       - "8333:8333"  # P2P port
       - "8545:8545"  # RPC port
-      - "3333:3333"  # Stratum mining pool port
-      - "9050:9050"  # Tor SOCKS5 proxy
+      - "3333:3333"  # Stratum mining pool port (if enabled)
+      - "9050:9050"  # Tor SOCKS5 proxy (if enabled)
+    
     volumes:
-      - obsidian-data:/root
+      - obsidian-data:/home/obsidian/data
+      - obsidian-logs:/home/obsidian/logs
+    
     restart: unless-stopped
+    
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "obsidiand"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8545/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   obsidian-data:
+    driver: local
+  obsidian-logs:
     driver: local

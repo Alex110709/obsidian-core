@@ -226,7 +226,133 @@ This project is open source and available under the MIT License.
 - **GitHub**: https://github.com/your-org/obsidian-core
 - **Issues**: https://github.com/your-org/obsidian-core/issues
 
+## Production Deployment
+
+### System Requirements
+
+**Minimum:**
+- CPU: 2 cores
+- RAM: 2GB
+- Storage: 50GB SSD
+- Network: 1 Mbps
+
+**Recommended:**
+- CPU: 4 cores
+- RAM: 8GB
+- Storage: 200GB SSD
+- Network: 10 Mbps
+
+### Configuration
+
+Create a `.env` file or set environment variables:
+
+```bash
+# Network
+NETWORK=mainnet
+P2P_ADDR=0.0.0.0:8333
+RPC_ADDR=0.0.0.0:8545
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=/var/log/obsidian/obsidian.log
+
+# Mining
+SOLO_MINING=true
+MINER_ADDRESS=your_address_here
+
+# Security
+MAX_PEERS=125
+BAN_DURATION=24h
+
+# Data
+DATA_DIR=/var/lib/obsidian
+```
+
+### Security Best Practices
+
+1. **Run as non-root user**: The Docker image uses a dedicated user
+2. **Use firewall rules**: Only expose necessary ports
+3. **Enable rate limiting**: RPC requests are rate-limited by default
+4. **Regular backups**: Backup your data directory regularly
+5. **Monitor logs**: Check logs for suspicious activity
+6. **Use HTTPS**: Put RPC behind a reverse proxy with TLS
+7. **Strong authentication**: Implement authentication for RPC access
+
+### Monitoring
+
+Check node health:
+```bash
+# Health check endpoint
+curl http://localhost:8545/health
+
+# Metrics endpoint
+curl http://localhost:8545/metrics
+
+# RPC methods
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"getblockchaininfo","params":[],"id":1}' \
+  http://localhost:8545
+```
+
+### Backup and Recovery
+
+```bash
+# Backup blockchain data
+docker exec obsidian-node tar czf /backup/obsidian-data.tar.gz /home/obsidian/data
+
+# Restore from backup
+docker cp obsidian-data.tar.gz obsidian-node:/tmp/
+docker exec obsidian-node tar xzf /tmp/obsidian-data.tar.gz -C /home/obsidian/
+```
+
+## Performance Tuning
+
+### Go Runtime
+
+Set Go environment variables for optimal performance:
+
+```bash
+GOGC=50              # Aggressive garbage collection
+GOMAXPROCS=4         # Number of CPU cores to use
+```
+
+### Database
+
+The node uses BoltDB for blockchain storage. For best performance:
+- Use SSD storage
+- Ensure sufficient disk space
+- Regular database compaction
+
+## Troubleshooting
+
+### Common Issues
+
+**Node won't start:**
+- Check logs: `docker logs obsidian-node`
+- Verify ports are not in use: `lsof -i :8333`
+- Check disk space: `df -h`
+
+**No peer connections:**
+- Check firewall rules
+- Verify seed nodes are reachable
+- Enable Tor if behind NAT
+
+**High memory usage:**
+- Reduce `MAX_PEERS`
+- Adjust `GOGC` value
+- Check for memory leaks in logs
+
 ## Recent Updates
+
+### v1.2.0 (Production Release)
+- **Security**: Rate limiting, request validation, non-root Docker user
+- **Logging**: Structured logging with file output support
+- **Monitoring**: Health check and metrics endpoints
+- **Docker**: Optimized multi-stage build with security hardening
+- **Configuration**: Comprehensive environment variable support
+- **Error Handling**: Improved error handling and graceful shutdown
+- **Resource Management**: Memory and CPU limits in Docker Compose
+- **Testing**: All tests passing with increased coverage
 
 ### v1.1.0
 - Enhanced validation and token mint processing

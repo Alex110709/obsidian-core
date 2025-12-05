@@ -106,6 +106,22 @@ func NewTokenMintTx(from, to string, tokenID Hash, amount int64) *MsgTx {
 	return tx
 }
 
+// NewTokenTransferOwnershipTx creates a new token ownership transfer transaction
+func NewTokenTransferOwnershipTx(from, to string, tokenID Hash) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeTokenTransferOwnership
+	// Simplified
+	return tx
+}
+
+// NewTokenBurnTx creates a new token burn transaction
+func NewTokenBurnTx(from string, tokenID Hash, amount int64) *MsgTx {
+	tx := NewMsgTx(1)
+	tx.TxType = TxTypeTokenBurn
+	// Simplified
+	return tx
+}
+
 // MsgTx implements the Message interface and represents a bitcoin tx message.
 // It is used to deliver transaction information in response to a getdata
 // message (MsgGetData) for a given transaction.
@@ -130,6 +146,11 @@ type MsgTx struct {
 
 	// Transparent transaction memo (optional, for t-addr txs)
 	Memo []byte // Up to 512 bytes (encrypted in shielded txs)
+
+	// Gas fields (Ethereum-style)
+	GasLimit uint64 // Maximum gas this transaction can use
+	GasPrice int64  // Price per gas unit in satoshis
+	GasUsed  uint64 // Actual gas used (set after execution)
 }
 
 // AddTxIn adds a transaction input to the message.

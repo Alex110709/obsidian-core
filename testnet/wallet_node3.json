@@ -1,0 +1,18 @@
+{
+  "mnemonic": "demand grid survey update teach deal exhibit grape survey now garage text artist apart veteran enemy bamboo kitten boat phrase pond brother silent appear",
+  "transparent_keys": [
+    {
+      "private_key": "fadf046e434c502f8468598b8881b3cbc9d338f8e9288a3113731591992ba0f7",
+      "public_key": "0253885c5cc682a92b092910d388e4a465ac5904263a248fcaaaa97be79cbfd88b",
+      "address": "ObsEUHSGcLLp1enXu2aPqCWPUDZ6MM6QEUun"
+    }
+  ],
+  "shielded_keys": [
+    {
+      "public_key": "a196fece2a6822e20a2e2f1df92d529f11c88b8b1532f3279075aef00323727d",
+      "viewing_key": "1327a9dc9dd2bf24e4a3299db5de1b4baae48517e93427ea11f86ee421377be0",
+      "address": "2opLSCXG9feue5gzfduEzoDPf8MzRj5TuDvZdLNc5RPZTW6VvAAXRvCqE6PGCQYzrWpoXihWbpFSwUtweqZt5PYQ4anUpZzFCx5"
+    }
+  ],
+  "transaction_history": []
+}

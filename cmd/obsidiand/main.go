@@ -14,7 +14,7 @@ import (
 	"obsidian-core/consensus"
 	"obsidian-core/mining"
 	"obsidian-core/network"
-	"obsidian-core/rpc"
+	"obsidian-core/rpcserver"
 	"obsidian-core/stratum"
 	"obsidian-core/tor"
 )
@@ -39,7 +39,19 @@ func main() {
 	cfg := config.Load()
 
 	// Setup logging
-	logrus.SetFormatter(&logrus.JSONFormatter{})
+	if cfg.LogFile != "" {
+		file, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err == nil {
+			logrus.SetOutput(file)
+			defer file.Close()
+		} else {
+			logrus.Warnf("Failed to open log file %s: %v", cfg.LogFile, err)
+		}
+	}
+
+	logrus.SetFormatter(&logrus.JSONFormatter{
+		TimestampFormat: "2006-01-02 15:04:05",
+	})
 	logrus.SetLevel(parseLogLevel(cfg.LogLevel))
 
 	logrus.WithFields(logrus.Fields{
@@ -177,11 +189,7 @@ func main() {
 	}
 
 	// Initialize and Start RPC Server
-	rpcAddr := os.Getenv("RPC_ADDR")
-	if rpcAddr == "" {
-		rpcAddr = "0.0.0.0:8545" // Default RPC address
-	}
-	rpcServer := rpc.NewServer(chain, miner, syncManager, rpcAddr)
+	rpcServer := rpcserver.NewServer(chain, miner, syncManager, cfg.RPCAddr)
 
 	// Connect pool server to RPC if enabled
 	if poolServer != nil {
@@ -198,13 +206,33 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
-	fmt.Println("\nShutting down...")
 
+	logrus.Info("Shutdown signal received, initiating graceful shutdown...")
+	fmt.Println("\nShutting down gracefully...")
+
+	// Stop components in reverse order
 	if poolServer != nil {
+		logrus.Info("Stopping pool server...")
 		poolServer.Stop()
 	}
-	rpcServer.Stop()
 
+	logrus.Info("Stopping RPC server...")
+	if err := rpcServer.Stop(); err != nil {
+		logrus.Errorf("Error stopping RPC server: %v", err)
+	}
+
+	if miner != nil {
+		logrus.Info("Stopping miner...")
+		miner.Stop()
+	}
+
+	logrus.Info("Stopping sync manager...")
+	syncManager.Stop()
+
+	logrus.Info("Closing blockchain database...")
+	chain.Close()
+
+	logrus.Info("Shutdown complete")
 	fmt.Println("Shutdown complete")
 }
 
